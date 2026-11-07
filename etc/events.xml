@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="fruitcake_healthcheck_diagnose">
+        <observer name="fruitcake_healthcheck_database" instance="Fruitcake\HealthCheck\Observer\Check\Database"/>
+        <observer name="fruitcake_healthcheck_cache" instance="Fruitcake\HealthCheck\Observer\Check\Cache"/>
+        <observer name="fruitcake_healthcheck_cache_types" instance="Fruitcake\HealthCheck\Observer\Check\CacheTypes"/>
+        <observer name="fruitcake_healthcheck_search_engine" instance="Fruitcake\HealthCheck\Observer\Check\SearchEngine"/>
+        <observer name="fruitcake_healthcheck_indexers" instance="Fruitcake\HealthCheck\Observer\Check\Indexers"/>
+        <observer name="fruitcake_healthcheck_cron" instance="Fruitcake\HealthCheck\Observer\Check\Cron"/>
+        <observer name="fruitcake_healthcheck_deploy_mode" instance="Fruitcake\HealthCheck\Observer\Check\DeployMode"/>
+        <observer name="fruitcake_healthcheck_debug" instance="Fruitcake\HealthCheck\Observer\Check\Debug"/>
+        <observer name="fruitcake_healthcheck_disk_space" instance="Fruitcake\HealthCheck\Observer\Check\DiskSpace"/>
+    </event>
+</config>

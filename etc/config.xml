@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <fruitcake_healthcheck>
+            <general>
+                <enabled>1</enabled>
+                <endpoint>up</endpoint>
+                <show_details>1</show_details>
+            </general>
+            <checks>
+                <database>1</database>
+                <cache>1</cache>
+                <cache_types>1</cache_types>
+                <search_engine>1</search_engine>
+                <indexers>1</indexers>
+                <cron>1</cron>
+                <deploy_mode>1</deploy_mode>
+                <debug>1</debug>
+                <disk_space>1</disk_space>
+            </checks>
+            <thresholds>
+                <cron_max_minutes>15</cron_max_minutes>
+                <indexer_backlog>1000</indexer_backlog>
+                <disk_free_warning>10</disk_free_warning>
+                <disk_free_failed>2</disk_free_failed>
+            </thresholds>
+        </fruitcake_healthcheck>
+    </default>
+</config>

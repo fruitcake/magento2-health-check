@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <tab id="fruitcake" translate="label" sortOrder="999999" class="fruitcake-tab">
+            <label>Fruitcake Extensions</label>
+        </tab>
+        <section id="fruitcake_healthcheck" translate="label" type="text" sortOrder="130200" showInDefault="1">
+            <label>Health Check</label>
+            <tab>fruitcake</tab>
+            <resource>Fruitcake_HealthCheck::config</resource>
+            <group id="general" translate="label" type="text" sortOrder="10" showInDefault="1">
+                <label>General</label>
+                <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1">
+                    <label>Enabled</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                </field>
+                <field id="endpoint" translate="label comment" type="text" sortOrder="20" showInDefault="1">
+                    <label>Endpoint</label>
+                    <comment>Path of the health check, e.g. "up" for https://example.com/up. Lowercase letters, digits, "-", "_" and "/". Pick a path no other page uses: this route is matched first.</comment>
+                    <validate>required-entry validate-identifier</validate>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
+                <field id="key" translate="label comment" type="obscure" sortOrder="30" showInDefault="1">
+                    <label>Key</label>
+                    <comment>When set, requests need an "Authorization: Bearer ..." header or ?key=.... Leave empty for a public endpoint that only returns the overall status. Use a long random key: there is no rate limiting.</comment>
+                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
+                    <frontend_model>Fruitcake\HealthCheck\Block\Adminhtml\System\Config\KeyField</frontend_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
+                <field id="show_details" translate="label comment" type="select" sortOrder="40" showInDefault="1">
+                    <label>Show Check Details</label>
+                    <comment>Lists every check with its message in the response. Only applies when a key is set.</comment>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
+            </group>
+            <group id="checks" translate="label" type="text" sortOrder="20" showInDefault="1">
+                <label>Checks</label>
+                <comment><![CDATA["Warnings fail" makes the endpoint return 503 on a warning of that check, e.g. cron behind or an invalid indexer. Do not use it when a load balancer takes nodes out of rotation based on this endpoint.]]></comment>
+                <field id="database" translate="label" type="select" sortOrder="10" showInDefault="1">
+                    <label>Database Connection</label>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="cache" translate="label" type="select" sortOrder="20" showInDefault="1">
+                    <label>Cache Storage</label>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="cache_types" translate="label comment" type="select" sortOrder="30" showInDefault="1">
+                    <label>Cache Types</label>
+                    <comment>Warns about disabled or invalidated cache types.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="search_engine" translate="label" type="select" sortOrder="40" showInDefault="1">
+                    <label>Search Engine (OpenSearch/Elasticsearch)</label>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="indexers" translate="label comment" type="select" sortOrder="50" showInDefault="1">
+                    <label>Indexers</label>
+                    <comment>Warns about invalid indexers and a large changelog backlog.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="cron" translate="label comment" type="select" sortOrder="60" showInDefault="1">
+                    <label>Cron</label>
+                    <comment>Warns when no cron job finished recently.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="deploy_mode" translate="label comment" type="select" sortOrder="70" showInDefault="1">
+                    <label>Production Mode</label>
+                    <comment>Warns when Magento does not run in production mode.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="debug" translate="label comment" type="select" sortOrder="80" showInDefault="1">
+                    <label>Debug Settings</label>
+                    <comment>Warns about template hints, debug logging and inline translation.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="disk_space" translate="label" type="select" sortOrder="90" showInDefault="1">
+                    <label>Disk Space</label>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+            </group>
+            <group id="thresholds" translate="label" type="text" sortOrder="30" showInDefault="1">
+                <label>Thresholds</label>
+                <field id="cron_max_minutes" translate="label" type="text" sortOrder="10" showInDefault="1">
+                    <label>Cron: Max Minutes Since Last Finished Job</label>
+                    <validate>validate-digits validate-greater-than-zero</validate>
+                </field>
+                <field id="indexer_backlog" translate="label" type="text" sortOrder="20" showInDefault="1">
+                    <label>Indexers: Max Changelog Backlog</label>
+                    <validate>validate-digits validate-greater-than-zero</validate>
+                </field>
+                <field id="disk_free_warning" translate="label" type="text" sortOrder="30" showInDefault="1">
+                    <label>Disk Space: Warning Below % Free</label>
+                    <validate>validate-number validate-number-range number-range-0-100</validate>
+                </field>
+                <field id="disk_free_failed" translate="label" type="text" sortOrder="40" showInDefault="1">
+                    <label>Disk Space: Failed Below % Free</label>
+                    <validate>validate-number validate-number-range number-range-0-100</validate>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>
