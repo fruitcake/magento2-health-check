@@ -7,4 +7,12 @@
             </argument>
         </arguments>
     </type>
+    <type name="Fruitcake\HealthCheck\Observer\Check\SearchEngine">
+        <arguments>
+            <argument name="testers" xsi:type="array">
+                <item name="core" xsi:type="object">Fruitcake\HealthCheck\Model\SearchEngine\CoreConnectionTester</item>
+                <item name="amasty" xsi:type="object">Fruitcake\HealthCheck\Model\SearchEngine\AmastyConnectionTester</item>
+            </argument>
+        </arguments>
+    </type>
 </config>

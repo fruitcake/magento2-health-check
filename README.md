@@ -62,7 +62,7 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 | `database` | no connection | |
 | `cache` | a cache frontend (default, page_cache) cannot write and read | |
 | `cache_types` | | a cache type is disabled or invalidated |
-| `search_engine` | OpenSearch/Elasticsearch does not answer a ping | |
+| `search_engine` | OpenSearch/Elasticsearch (Magento's own or Amasty Elastic Search) does not answer a ping | no connection test exists for the configured engine |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
 | `cron` | | no cron job finished within the threshold (15 minutes) |
 | `deploy_mode` | | not in production mode |
@@ -127,6 +127,22 @@ class Rabbitmq extends AbstractCheck
 ```
 
 To make it configurable in the admin, add a field to the `fruitcake_healthcheck/checks` group in your own `system.xml`, with `Fruitcake\HealthCheck\Model\Config\Source\CheckMode` as source model.
+
+### Search engines
+
+The `search_engine` check asks each tester in the pool whether it knows the configured engine. Magento's own OpenSearch/Elasticsearch and Amasty Elastic Search are built in. Add a tester for another engine by implementing `Fruitcake\HealthCheck\Model\SearchEngine\ConnectionTesterInterface` (return `null` for engines it does not know) and adding it in `di.xml`:
+
+```xml
+<type name="Fruitcake\HealthCheck\Observer\Check\SearchEngine">
+    <arguments>
+        <argument name="testers" xsi:type="array">
+            <item name="mirasvit" xsi:type="object">Vendor\Module\Model\MirasvitConnectionTester</item>
+        </argument>
+    </arguments>
+</type>
+```
+
+### Without AbstractCheck
 
 An observer that does not extend `AbstractCheck` gets the report with `$observer->getData('report')` and calls `$report->add('code', CheckResult::warning('...'))`.
 
