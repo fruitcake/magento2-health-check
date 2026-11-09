@@ -104,6 +104,11 @@
                     <comment>Warns about template hints, debug logging and inline translation.</comment>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>
+                <field id="public_files" translate="label comment" type="select" sortOrder="85" showInDefault="1">
+                    <label>Public Files</label>
+                    <comment>Warns about database dumps, archives, phpinfo pages and project files like .env in pub/ or pub/media/.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
                 <field id="disk_space" translate="label" type="select" sortOrder="90" showInDefault="1">
                     <label>Disk Space</label>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>

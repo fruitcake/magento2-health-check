@@ -9,6 +9,7 @@ use Fruitcake\HealthCheck\Model\HealthReport;
 use Fruitcake\HealthCheck\Observer\Check\Debug;
 use Fruitcake\HealthCheck\Test\Unit\ConfigStub;
 use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\Event\Observer;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\Store\Model\ScopeInterface;
@@ -41,11 +42,35 @@ class DebugTest extends TestCase
         $this->assertSame(['dev/debug/debug_logging'], $result->meta['enabled']);
     }
 
+    public function testDatabaseProfilerWarns(): void
+    {
+        $result = $this->check([], ['db/connection' => [
+            'default' => ['host' => 'db', 'profiler' => ['class' => 'Magento\\Framework\\DB\\Profiler', 'enabled' => true]],
+            'indexer' => ['host' => 'db', 'profiler' => ['enabled' => false]],
+        ]]);
+
+        $this->assertSame(CheckResult::WARNING, $result->status);
+        $this->assertSame(['database profiler (default)'], $result->meta['enabled']);
+    }
+
+    public function testStaticContentOnDemandWarns(): void
+    {
+        $result = $this->check([], ['static_content_on_demand_in_production' => 1]);
+
+        $this->assertSame(['static_content_on_demand_in_production'], $result->meta['enabled']);
+    }
+
     /**
      * @param array{default?: array<string, string>, store?: array<int, array<string, string>>} $values
+     * @param array<string, mixed> $env env.php values by path
      */
-    private function check(array $values): CheckResult
+    private function check(array $values, array $env = []): CheckResult
     {
+        $deploymentConfig = $this->createMock(DeploymentConfig::class);
+        $deploymentConfig->method('get')->willReturnCallback(
+            static fn (string $path, $default = null) => $env[$path] ?? $default
+        );
+
         $scopeConfig = $this->createMock(ScopeConfigInterface::class);
         $scopeConfig->method('isSetFlag')->willReturnCallback(
             static function (string $path, string $scope = ScopeConfigInterface::SCOPE_TYPE_DEFAULT, $code = null) use ($values) {
@@ -64,7 +89,7 @@ class DebugTest extends TestCase
 
         $config = $this->createConfig(['fruitcake_healthcheck/checks/debug' => '1']);
         $report = new HealthReport();
-        (new Debug($config, $scopeConfig, $storeManager))->execute(new Observer(['report' => $report]));
+        (new Debug($config, $scopeConfig, $storeManager, $deploymentConfig))->execute(new Observer(['report' => $report]));
 
         return $report->getResults()['debug'];
     }

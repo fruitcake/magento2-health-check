@@ -91,15 +91,16 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 | Code | Fails when | Warns when |
 |---|---|---|
 | `database` | no connection | |
-| `cache_storage` | a cache frontend (default, page_cache) cannot write and read back a value | |
-| `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached), or database sessions without garbage collection (`session.gc_probability = 0`), so the `session` table keeps growing |
+| `cache_storage` | a cache frontend (default, page_cache) cannot write and read back a value. For Redis frontends it measures memory use and evicted keys | |
+| `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached), or database sessions without garbage collection (`session.gc_probability = 0`), so the `session` table keeps growing, or the session Redis evicted keys, which logs customers out |
 | `cache_types` | | a cache type is disabled or invalidated |
 | `search_engine` | OpenSearch/Elasticsearch (Magento's own, Amasty Elastic Search or Smile ElasticSuite) does not answer a ping | no connection test exists for the configured engine |
 | `rabbitmq` | no connection to RabbitMQ with `queue/amqp` from `env.php` (passes without connecting when it is not configured) | |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
 | `cron` | | no cron job finished within the threshold (15 minutes). The module adds an index on `cron_schedule` (`status`, `finished_at`) so this stays fast on a large table |
-| `deploy_mode` | | not in production mode |
-| `debug` | | template hints, debug logging or inline translation is on |
+| `deploy_mode` | | not in production mode, or the Composer autoloader is not optimized (`composer dump-autoload --optimize`) |
+| `debug` | | template hints, debug logging, inline translation, a database profiler or `static_content_on_demand_in_production` is on |
+| `public_files` | | `pub/` or `pub/media/` holds database dumps, archives, `phpinfo.php`, `.git`, `.env`, `composer.json` or `auth.json` |
 | `disk_space` | free space on `var/` below 2% | free space below 10% |
 | `opcache` | | OPcache is off, its status is not available (`opcache.restrict_api`), 90% of its memory or keys (`opcache.max_accelerated_files`) is used, or the hit rate is below 90% after 10,000 requests. The result is per web node |
 | `two_factor_auth` | | admin two-factor authentication is off: `Magento_TwoFactorAuth` is disabled, or `twofactorauth/general/enable` is 0 (e.g. MarkShust_DisableTwoFactorAuth). Use `Yes, warnings fail in production mode` to fail on production only |

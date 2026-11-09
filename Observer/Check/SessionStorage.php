@@ -6,6 +6,7 @@ namespace Fruitcake\HealthCheck\Observer\Check;
 
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\Config;
+use Fruitcake\HealthCheck\Model\RedisInfo;
 use Fruitcake\HealthCheck\Observer\AbstractCheck;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\Session\Config\ConfigInterface as SessionConfig;
@@ -24,7 +25,8 @@ class SessionStorage extends AbstractCheck
         Config $config,
         private readonly DeploymentConfig $deploymentConfig,
         private readonly SaveHandlerFactory $saveHandlerFactory,
-        private readonly SessionConfig $sessionConfig
+        private readonly SessionConfig $sessionConfig,
+        private readonly RedisInfo $redisInfo
     ) {
         parent::__construct($config);
     }
@@ -68,7 +70,39 @@ class SessionStorage extends AbstractCheck
             );
         }
 
+        if ($handler === 'redis') {
+            return $this->checkRedisServer($meta);
+        }
+
         return CheckResult::ok('', $meta);
+    }
+
+    /**
+     * Memory use and evictions of the session Redis. An evicted session is a customer who is logged out
+     * or loses the cart, so any eviction warns: give sessions their own Redis, or a policy that does not evict.
+     */
+    private function checkRedisServer(array $meta): CheckResult
+    {
+        $info = $this->redisInfo->get(
+            (string) ($this->deploymentConfig->get('session/redis/host') ?: '127.0.0.1'),
+            (int) ($this->deploymentConfig->get('session/redis/port') ?: 6379),
+            (string) $this->deploymentConfig->get('session/redis/password'),
+            (int) $this->deploymentConfig->get('session/redis/database')
+        );
+        if ($info === null) {
+            return CheckResult::ok('', $meta);
+        }
+
+        $evicted = (int) ($info['evicted_keys'] ?? 0);
+        $meta['maxmemory_policy'] = (string) ($info['maxmemory_policy'] ?? '');
+        $result = $evicted > 0
+            ? CheckResult::warning(
+                sprintf('Redis evicted %d keys: sessions may be lost. Use a Redis that does not evict sessions', $evicted),
+                $meta
+            )
+            : CheckResult::ok('', $meta);
+
+        return $this->redisInfo->addMeasurements($result, $info);
     }
 
     /**

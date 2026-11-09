@@ -6,8 +6,10 @@ namespace Fruitcake\HealthCheck\Observer\Check;
 
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\Config;
+use Fruitcake\HealthCheck\Model\RedisInfo;
 use Fruitcake\HealthCheck\Observer\AbstractCheck;
 use Magento\Framework\App\Cache\Frontend\Pool;
+use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\Cache\FrontendInterface;
 
 /**
@@ -18,7 +20,9 @@ class CacheStorage extends AbstractCheck
 {
     public function __construct(
         Config $config,
-        private readonly Pool $cachePool
+        private readonly Pool $cachePool,
+        private readonly DeploymentConfig $deploymentConfig,
+        private readonly RedisInfo $redisInfo
     ) {
         parent::__construct($config);
     }
@@ -60,7 +64,35 @@ class CacheStorage extends AbstractCheck
             );
         }
 
-        return CheckResult::ok('', ['backends' => $backends]);
+        return $this->addRedisMeasurements(CheckResult::ok('', ['backends' => $backends]), $backends);
+    }
+
+    /**
+     * Memory use and evictions per Redis cache frontend, e.g. defaultMemoryUsed and pageCacheEvictedKeys.
+     * Only measured: a cache that evicts with an LRU policy is doing its job.
+     *
+     * @param array<string, string> $backends
+     */
+    private function addRedisMeasurements(CheckResult $result, array $backends): CheckResult
+    {
+        foreach ($backends as $id => $backend) {
+            if ($backend !== 'Redis') {
+                continue;
+            }
+            $options = (array) $this->deploymentConfig->get('cache/frontend/' . $id . '/backend_options', []);
+            $info = $this->redisInfo->get(
+                (string) ($options['server'] ?? '127.0.0.1'),
+                (int) ($options['port'] ?? 6379),
+                (string) ($options['password'] ?? ''),
+                (int) ($options['database'] ?? 0)
+            );
+            if ($info !== null) {
+                $prefix = lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', (string) $id))));
+                $result = $this->redisInfo->addMeasurements($result, $info, $prefix);
+            }
+        }
+
+        return $result;
     }
 
     /**
