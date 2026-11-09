@@ -54,85 +54,108 @@ class Html implements FormatInterface
 
         $counts = ['fail' => 0, 'warn' => 0, 'pass' => 0];
         $totalMs = 0.0;
-        $problems = '';
-        $passing = '';
+        $rows = '';
+        $problems = [];
         foreach ($checks as $code => $results) {
             foreach ((array) $results as $result) {
                 $checkStatus = (string) ($result['status'] ?? '');
                 $counts[$checkStatus] = ($counts[$checkStatus] ?? 0) + 1;
                 $totalMs += (float) ($result['durationMs'] ?? 0);
-                $row = $this->renderRow((string) $code, $result);
-                if ($checkStatus === 'pass') {
-                    $passing .= $row;
-                } else {
-                    $problems .= $row;
+                $rows .= $this->renderRow((string) $code, $result);
+                if ($checkStatus === $status && $status !== 'pass') {
+                    $problems[] = [(string) $code, (string) ($result['output'] ?? '')];
                 }
             }
         }
+        $total = array_sum($counts);
 
-        if ($checks) {
-            $body = ($problems !== '' ? $this->renderTable('Needs attention', $problems) : '')
-                . ($passing !== '' ? $this->renderTable('Passing', $passing) : '');
-        } else {
-            $body = '<p class="muted">Checks are only listed with the key, when Show Check Details is on.</p>';
+        $facts = array_filter([
+            isset($data['releaseId']) ? ['Release', (string) $data['releaseId'], true] : null,
+            ['Checked', gmdate('Y-m-d H:i') . ' UTC', false],
+            $total ? ['Checks', (string) $total, false] : null,
+        ]);
+        $factsHtml = '';
+        foreach ($facts as [$label, $value, $mono]) {
+            $factsHtml .= '<div><dt>' . $this->escape($label) . '</dt><dd' . ($mono ? ' class="mono"' : '') . '>'
+                . $this->escape($value) . '</dd></div>';
         }
 
-        $summary = $checks
-            ? implode(' · ', array_filter([
-                $counts['fail'] ? $counts['fail'] . ' failing' : '',
-                $counts['warn'] ? $counts['warn'] . ($counts['warn'] === 1 ? ' warning' : ' warnings') : '',
-                $counts['pass'] ? $counts['pass'] . ' passing' : '',
-            ]))
-            : '';
-        $context = array_filter([
-            isset($data['serviceId']) ? 'Node ' . $data['serviceId'] : '',
-            isset($data['releaseId']) ? 'Release ' . $data['releaseId'] : '',
-            'Checked ' . gmdate('Y-m-d H:i:s') . ' UTC',
-            $checks ? 'in ' . $this->formatDuration($totalMs) : '',
-        ]);
+        $body = '<header class="head"><p class="eyebrow">Magento health check</p>'
+            . '<h1>' . $this->escape((string) ($data['serviceId'] ?? 'Health')) . '</h1>'
+            . '<dl class="facts">' . $factsHtml . '</dl></header>'
+            . $this->renderBanner($status, $counts, $total, $problems);
+
+        if ($total) {
+            $body .= '<section class="stats">'
+                . $this->renderStat('fail', (string) $counts['fail'], 'Fail')
+                . $this->renderStat('warn', (string) $counts['warn'], 'Warn')
+                . $this->renderStat('pass', (string) $counts['pass'], 'Pass')
+                . $this->renderStat('time', $this->formatDuration($totalMs), 'Total duration')
+                . '</section>'
+                . '<section class="card scroll"><table>'
+                . '<colgroup><col class="c-check"><col class="c-status"><col><col class="c-time"></colgroup>'
+                . '<thead><tr><th>Check</th><th>Status</th><th>Details</th><th class="num">Duration</th></tr></thead>'
+                . '<tbody>' . $rows . '</tbody></table></section>';
+        } else {
+            $body .= '<p class="muted">Checks are only listed with the key, when Show Check Details is on.</p>';
+        }
 
         return '<!doctype html><html lang="en"><head><meta charset="utf-8">'
             . '<meta name="viewport" content="width=device-width, initial-scale=1">'
             . '<meta name="robots" content="noindex, nofollow">'
-            . '<title>' . $this->escape(self::HEADINGS[$status] ?? 'Health') . '</title>'
+            . '<title>' . $this->escape(ucfirst($status) . ' · ' . ($data['serviceId'] ?? 'Health')) . '</title>'
             . '<style>' . self::CSS . '</style></head><body><main>'
-            . '<header class="banner ' . $this->escape($status) . '">'
-            . '<h1>' . $this->escape(self::HEADINGS[$status] ?? 'Health') . '</h1>'
-            . ($summary !== '' ? '<p class="summary">' . $this->escape($summary) . '</p>' : '')
-            . '<p class="context">' . $this->escape(implode(' · ', $context)) . '</p>'
-            . '</header>'
             . $body
             . '<details><summary>JSON</summary><pre>' . $this->escape($json) . '</pre></details>'
             . '</main></body></html>';
     }
 
-    private const HEADINGS = ['pass' => 'Healthy', 'warn' => 'Healthy, with warnings', 'fail' => 'Unhealthy'];
-
-    private function renderTable(string $title, string $rows): string
+    /**
+     * @param array<int, array{string, string}> $problems checks with the overall status, as code and message
+     */
+    private function renderBanner(string $status, array $counts, int $total, array $problems): string
     {
-        // Fixed columns, so the tables line up
-        return '<h2>' . $this->escape($title) . '</h2><div class="scroll"><table>'
-            . '<colgroup><col class="c-check"><col class="c-status"><col><col class="c-meta"><col class="c-time"></colgroup>'
-            . '<thead><tr><th>Check</th><th>Status</th><th>Output</th><th>Meta</th><th class="num">Duration</th></tr></thead>'
-            . '<tbody>' . $rows . '</tbody></table></div>';
+        $heading = match ($status) {
+            'fail' => sprintf('Fail — %d %s failing', $counts['fail'], $counts['fail'] === 1 ? 'check' : 'checks'),
+            'warn' => sprintf('Warn — %d %s', $counts['warn'], $counts['warn'] === 1 ? 'warning' : 'warnings'),
+            default => $total ? sprintf('Pass — all %d checks passing', $total) : 'Pass',
+        };
+
+        $lines = '';
+        foreach (array_slice($problems, 0, 3) as [$code, $output]) {
+            $lines .= '<p><span class="mono strong">' . $this->escape($code) . '</span>'
+                . ($output !== '' ? ': ' . $this->escape($output) : '') . '</p>';
+        }
+        if (count($problems) > 3) {
+            $lines .= '<p class="muted">and ' . (count($problems) - 3) . ' more</p>';
+        }
+
+        return '<section class="banner ' . $this->escape($status) . '">'
+            . '<span class="banner-icon">' . $this->icon($status, 24) . '</span>'
+            . '<div><h2>' . $this->escape($heading) . '</h2>' . $lines . '</div></section>';
+    }
+
+    private function renderStat(string $type, string $value, string $label): string
+    {
+        return '<div class="stat ' . $type . '"><span class="stat-value">' . $this->escape($value) . '</span>'
+            . '<span class="stat-label">' . $this->escape($label) . '</span></div>';
     }
 
     private function renderRow(string $code, array $result): string
     {
         $status = (string) ($result['status'] ?? '');
+        $output = (string) ($result['output'] ?? '');
+        $chips = $this->renderMeta((array) ($result['meta'] ?? []));
 
-        return sprintf(
-            '<tr class="%s" data-check="%s"><td><code>%s</code></td><td><span class="badge %s">%s</span></td>'
-            . '<td>%s</td><td class="meta">%s</td><td class="num">%s</td></tr>',
-            $this->escape($status),
-            $this->escape($code),
-            $this->escape($code),
-            $this->escape($status),
-            $this->escape($status),
-            $this->escape((string) ($result['output'] ?? '')),
-            $this->renderMeta((array) ($result['meta'] ?? [])),
-            isset($result['durationMs']) ? $this->escape($this->formatDuration((float) $result['durationMs'])) : ''
-        );
+        return '<tr class="' . $this->escape($status) . '" data-check="' . $this->escape($code) . '">'
+            . '<td class="mono strong">' . $this->escape($code) . '</td>'
+            . '<td><span class="pill ' . $this->escape($status) . '">' . $this->icon($status, 14)
+            . $this->escape($status) . '</span></td>'
+            . '<td>' . ($output !== '' ? '<p>' . $this->escape($output) . '</p>' : '')
+            . ($chips !== '' ? '<div class="chips">' . $chips . '</div>' : '') . '</td>'
+            . '<td class="num mono">' . (isset($result['durationMs'])
+                ? $this->escape($this->formatDuration((float) $result['durationMs'])) : '') . '</td>'
+            . '</tr>';
     }
 
     private function formatDuration(float $ms): string
@@ -163,31 +186,33 @@ class Html implements FormatInterface
     }
 
     /**
-     * One "key: value" line per meta item. A list is joined with commas, a nested object becomes "key: value" pairs.
+     * One chip per meta item; a nested object becomes a chip per key, a list is joined with commas.
      */
     private function renderMeta(array $meta): string
     {
-        $lines = [];
+        $chips = '';
         foreach ($meta as $key => $value) {
-            $lines[] = '<div><span class="muted">' . $this->escape((string) $key) . ':</span> '
-                . $this->escape($this->formatValue($value)) . '</div>';
+            if (is_array($value) && $value !== [] && !array_is_list($value)) {
+                $chips .= $this->renderMeta($value);
+                continue;
+            }
+            $chips .= '<span class="chip"><span class="chip-key">' . $this->escape((string) $key) . '</span>'
+                . $this->escape($this->formatValue($value)) . '</span>';
         }
 
-        return implode('', $lines);
+        return $chips;
     }
 
     private function formatValue(mixed $value): string
     {
         if (is_array($value)) {
-            if (array_is_list($value)) {
-                return implode(', ', array_map(fn ($item) => $this->formatValue($item), $value));
+            return implode(', ', array_map(fn ($item) => $this->formatValue($item), $value));
+        }
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/', $value)) {
+            $time = strtotime($value);
+            if ($time !== false) {
+                return gmdate('Y-m-d H:i:s', $time) . ' UTC';
             }
-            $pairs = [];
-            foreach ($value as $key => $item) {
-                $pairs[] = $key . ': ' . $this->formatValue($item);
-            }
-
-            return implode(', ', $pairs);
         }
 
         return match (true) {
@@ -197,31 +222,76 @@ class Html implements FormatInterface
         };
     }
 
+    /**
+     * Inline SVG: a cross for fail, an exclamation mark for warn, a check mark for pass.
+     */
+    private function icon(string $status, int $size): string
+    {
+        $path = match ($status) {
+            'fail' => 'M18 6 6 18M6 6l12 12',
+            'warn' => 'M12 7v6M12 17h.01',
+            default => 'M20 6 9 17l-5-5',
+        };
+
+        return sprintf(
+            '<svg width="%1$d" height="%1$d" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" '
+            . 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="%2$s"/></svg>',
+            $size,
+            $path
+        );
+    }
+
     private function escape(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    private const CSS = ':root{color-scheme:light dark;--bg:#fff;--fg:#1f2328;--muted:#656d76;--line:#d0d7de;--card:#f6f8fa;'
-        . '--pass:#1a7f37;--warn:#9a6700;--fail:#cf222e;--pass-bg:#dafbe1;--warn-bg:#fff8c5;--fail-bg:#ffebe9}'
-        . '@media (prefers-color-scheme:dark){:root{--bg:#0d1117;--fg:#e6edf3;--muted:#8d96a0;--line:#30363d;--card:#161b22;'
-        . '--pass:#3fb950;--warn:#d29922;--fail:#f85149;--pass-bg:#12261e;--warn-bg:#272115;--fail-bg:#2d1517}}'
-        . 'body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}'
-        . 'main{max-width:1100px;margin:0 auto;padding:24px 16px}'
-        . '.banner{border:1px solid var(--line);border-left:6px solid var(--muted);border-radius:8px;padding:16px 20px;background:var(--card)}'
-        . '.banner.pass{border-left-color:var(--pass);background:var(--pass-bg)}'
-        . '.banner.warn{border-left-color:var(--warn);background:var(--warn-bg)}'
-        . '.banner.fail{border-left-color:var(--fail);background:var(--fail-bg)}'
-        . 'h1{font-size:22px;margin:0}.summary{margin:4px 0 0;font-weight:600}.context{margin:4px 0 0;color:var(--muted);font-size:13px}'
-        . 'h2{font-size:15px;margin:28px 0 8px;color:var(--muted);font-weight:600}'
-        . '.muted{color:var(--muted)}.scroll{overflow-x:auto}table{width:100%;min-width:760px;border-collapse:collapse;table-layout:fixed}'
-        . '.c-check{width:180px}.c-status{width:72px}.c-meta{width:34%}.c-time{width:84px}td code{white-space:nowrap}'
-        . 'th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}'
-        . 'th{font-weight:600;color:var(--muted);font-size:13px}.num{text-align:right;white-space:nowrap;color:var(--muted)}'
-        . 'tr.fail td:first-child{box-shadow:inset 3px 0 var(--fail)}tr.warn td:first-child{box-shadow:inset 3px 0 var(--warn)}'
-        . 'code,pre{font:13px/1.4 ui-monospace,monospace;word-break:break-word}pre{white-space:pre-wrap}'
-        . '.meta{font-size:13px;word-break:break-word}'
-        . '.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;color:#fff;background:var(--muted)}'
-        . '.badge.pass{background:var(--pass)}.badge.warn{background:var(--warn)}.badge.fail{background:var(--fail)}'
-        . 'details{margin-top:28px}summary{cursor:pointer;color:var(--muted)}';
+    private const CSS = ':root{color-scheme:light dark;'
+        . '--bg:#f0f0f0;--card:#fff;--fg:#1e1e1e;--title:#202945;--muted:#5c5f66;--line:#d9d9d9;--row:#f0f0f0;--chip:#f0f0f0;'
+        . '--fail:#a13b3b;--fail-text:#a13b3b;--fail-bg:#f6e7e7;--fail-row:#fcf6f6;'
+        . '--warn:#c98a1b;--warn-text:#8a5300;--warn-bg:#fbf0d9;'
+        . '--pass:#2e7d4f;--pass-text:#256b42;--pass-bg:#e6f2ea;--time:#d9d9d9}'
+        . '@media (prefers-color-scheme:dark){:root{'
+        . '--bg:#14161b;--card:#1d2027;--fg:#e4e5e8;--title:#eef0f6;--muted:#9a9ea8;--line:#343842;--row:#2a2e37;--chip:#2a2e37;'
+        . '--fail:#d46a6a;--fail-text:#ec8f8f;--fail-bg:#3a2224;--fail-row:#2a1f22;'
+        . '--warn:#d9a441;--warn-text:#e8bf6d;--warn-bg:#3a3020;'
+        . '--pass:#4fae74;--pass-text:#7cc99a;--pass-bg:#1f3428;--time:#4a4f5a}}'
+        . '*{box-sizing:border-box}'
+        . 'body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}'
+        . 'main{max-width:1120px;margin:0 auto;padding:48px 24px 64px;display:flex;flex-direction:column;gap:24px}'
+        . '.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.strong{font-weight:600}'
+        . '.muted{color:var(--muted)}'
+        . '.eyebrow{margin:0 0 12px;color:var(--muted);font-size:14px;font-weight:600}'
+        . 'h1{margin:0 0 12px;color:var(--title);font:700 40px/1.1 system-ui,-apple-system,"Segoe UI",sans-serif;letter-spacing:-.01em;word-break:break-word}'
+        . '.facts{display:flex;flex-wrap:wrap;gap:8px 24px;margin:0;font-size:14px}.facts div{display:flex;gap:6px}'
+        . '.facts dt{color:var(--muted)}.facts dd{margin:0;font-weight:600}'
+        . '.banner{display:flex;gap:16px;align-items:flex-start;padding:20px 24px;border-radius:5px}'
+        . '.banner h2{margin:0 0 4px;font:700 28px/1.15 system-ui,-apple-system,"Segoe UI",sans-serif}.banner p{margin:2px 0 0;font-size:15px}'
+        . '.banner-icon{flex-shrink:0;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}'
+        . '.banner.fail{background:var(--fail-bg);box-shadow:inset 6px 0 var(--fail)}.banner.fail h2{color:var(--fail-text)}.banner.fail .banner-icon{background:var(--fail)}'
+        . '.banner.warn{background:var(--warn-bg);box-shadow:inset 6px 0 var(--warn)}.banner.warn h2{color:var(--warn-text)}.banner.warn .banner-icon{background:var(--warn)}'
+        . '.banner.pass{background:var(--pass-bg);box-shadow:inset 6px 0 var(--pass)}.banner.pass h2{color:var(--pass-text)}.banner.pass .banner-icon{background:var(--pass)}'
+        . '.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}'
+        . '@media (max-width:720px){.stats{grid-template-columns:repeat(2,1fr)}h1{font-size:30px}.banner h2{font-size:22px}}'
+        . '.stat{background:var(--card);border-radius:5px;border-top:4px solid var(--time);padding:20px 24px;display:flex;flex-direction:column;gap:4px}'
+        . '.stat-value{font:700 36px/1.1 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--title)}.stat-label{color:var(--muted);font-size:14px}'
+        . '.stat.fail{border-top-color:var(--fail)}.stat.fail .stat-value{color:var(--fail-text)}'
+        . '.stat.warn{border-top-color:var(--warn)}.stat.warn .stat-value{color:var(--warn-text)}'
+        . '.stat.pass{border-top-color:var(--pass)}.stat.pass .stat-value{color:var(--pass-text)}'
+        . '.card{background:var(--card);border-radius:5px}.scroll{overflow-x:auto}'
+        . 'table{width:100%;min-width:680px;border-collapse:collapse;table-layout:fixed;font-size:14px}'
+        . '.c-check{width:190px}.c-status{width:110px}.c-time{width:96px}'
+        . 'th{text-align:left;font-size:13px;font-weight:600;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--line);white-space:nowrap}'
+        . 'td{padding:14px 16px;border-bottom:1px solid var(--row);vertical-align:top}tbody tr:last-child td{border-bottom:0}'
+        . 'td.mono.strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.num{text-align:right}'
+        . 'td p{margin:0}tr.fail{background:var(--fail-row)}'
+        . 'tr.fail td:first-child{box-shadow:inset 4px 0 var(--fail)}tr.warn td:first-child{box-shadow:inset 4px 0 var(--warn)}'
+        . '.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 7px;border-radius:100px;font-size:12px;font-weight:700}'
+        . '.pill.fail{background:var(--fail-bg);color:var(--fail-text)}.pill.warn{background:var(--warn-bg);color:var(--warn-text)}'
+        . '.pill.pass{background:var(--pass-bg);color:var(--pass-text)}'
+        . '.chips{display:flex;flex-wrap:wrap;gap:6px}td p+.chips{margin-top:8px}'
+        . '.chip{display:inline-flex;gap:6px;background:var(--chip);border-radius:4px;padding:2px 8px;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}'
+        . '.chip-key{color:var(--muted)}'
+        . 'details{font-size:14px}summary{cursor:pointer;color:var(--muted)}'
+        . 'pre{background:var(--card);border-radius:5px;padding:16px;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word}';
 }

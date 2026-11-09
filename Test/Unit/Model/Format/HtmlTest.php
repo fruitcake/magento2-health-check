@@ -27,19 +27,37 @@ class HtmlTest extends TestCase
         $this->assertSame(['search_engine', 'cron', 'opcache', 'database', 'cache_storage'], $matches[1]);
     }
 
-    public function testMetaIsOneLinePerItem(): void
+    public function testMetaIsOneChipPerItem(): void
     {
         $html = $this->render(['cache_storage' => [['status' => 'pass', 'meta' => [
             'backends' => ['default' => 'Redis', 'page_cache' => 'File'],
             'failed' => ['default', 'page_cache'],
             'configured' => false,
-            'free_percent' => 61.3,
+            'last_finished_at' => '2026-11-09T12:11:08+00:00',
         ]]]]);
 
-        $this->assertStringContainsString('backends:</span> default: Redis, page_cache: File</div>', $html);
-        $this->assertStringContainsString('failed:</span> default, page_cache</div>', $html);
-        $this->assertStringContainsString('configured:</span> false</div>', $html);
-        $this->assertStringContainsString('free_percent:</span> 61.3</div>', $html);
+        // A nested object becomes a chip per key, a list one chip, dates are UTC
+        $this->assertStringContainsString('<span class="chip-key">default</span>Redis</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">page_cache</span>File</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">failed</span>default, page_cache</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">configured</span>false</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">last_finished_at</span>2026-11-09 12:11:08 UTC</span>', $html);
+    }
+
+    public function testBannerNamesTheFailingChecks(): void
+    {
+        $data = ['status' => 'fail', 'serviceId' => 'web1', 'checks' => [
+            'database' => [['status' => 'pass']],
+            'search_engine' => [['status' => 'fail', 'output' => 'No alive nodes found in your cluster']],
+        ]];
+        $html = (new Html(
+            new HealthJson($this->createMock(ServiceInfo::class)),
+            new BrowserDetector($this->createMock(Config::class))
+        ))->renderPage($data, '{}');
+
+        $this->assertStringContainsString('<h1>web1</h1>', $html);
+        $this->assertStringContainsString('Fail — 1 check failing', $html);
+        $this->assertStringContainsString('search_engine</span>: No alive nodes found in your cluster', $html);
     }
 
     public function testMetaIsEscaped(): void
