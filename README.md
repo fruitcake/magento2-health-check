@@ -36,6 +36,7 @@ curl -H 'Authorization: Bearer <key>' https://example.com/health
 {
   "status": "warn",
   "output": "cron: Last cron job finished 42 minutes ago",
+  "version": "2.4.7-p3 (Community)",
   "serviceId": "web1",
   "releaseId": "1731151234",
   "checks": {
@@ -50,7 +51,7 @@ curl -H 'Authorization: Bearer <key>' https://example.com/health
 }
 ```
 
-With details, the response also has `serviceId`, the hostname of the node that answered, and `releaseId`, the static content version from `pub/static/deployed_version.txt`. `setup:static-content:deploy` writes that file on every deploy, whatever the deploy tool, so after a deploy you can see whether every node runs the same release. `releaseId` is left out when the file does not exist, e.g. in developer mode.
+With details, the response also has `version`, the Magento version and edition, `serviceId`, the hostname of the node that answered, and `releaseId`, the static content version from `pub/static/deployed_version.txt`. `setup:static-content:deploy` writes that file on every deploy, whatever the deploy tool, so after a deploy you can see whether every node runs the same release. `releaseId` is left out when the file does not exist, e.g. in developer mode.
 
 With details, a `warn` or `fail` response also gets a top-level `output` with every check that did not pass, failures first, so a monitor shows the reason without digging through `checks`:
 
@@ -82,7 +83,7 @@ Stores > Configuration > Fruitcake Extensions > Health Check:
 - **Monitor User Agents**: parts of user agents, one per line, that always get JSON instead of the HTML page for browsers.
 - **Show Check Details**: adds every check with its status, message, meta data and measurements to the response. On by default, but only applies when a key is set.
 - **Checks**: per check `No`, `Yes`, `Yes, warnings fail` or `Yes, warnings fail in production mode`. A strict check reports its warnings as failures, so the endpoint returns 503, e.g. when cron is behind. Keep checks non-strict when a load balancer uses the endpoint, or an invalid indexer takes every node out of rotation.
-- **Thresholds**: cron age, indexer backlog and free disk space.
+- **Thresholds**: cron age, indexer backlog, MySQL queue backlog and free disk space.
 
 The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_healthcheck/checks/search_engine 0` or `config:set fruitcake_healthcheck/checks/cron strict_production`.
 
@@ -90,12 +91,13 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 
 | Code | Fails when | Warns when |
 |---|---|---|
-| `database` | no connection | |
+| `database` | no connection | 80% of `max_connections` is in use. Measures `connections` and `connectionsUsed` |
 | `cache_storage` | a cache frontend (default, page_cache) cannot write and read back a value. For Redis frontends it measures memory use and evicted keys | |
 | `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached), or database sessions without garbage collection (`session.gc_probability = 0`), so the `session` table keeps growing, or the session Redis evicted keys, which logs customers out |
 | `cache_types` | | a cache type is disabled or invalidated |
-| `search_engine` | OpenSearch/Elasticsearch (Magento's own, Amasty Elastic Search or Smile ElasticSuite) does not answer a ping | no connection test exists for the configured engine |
+| `search_engine` | OpenSearch/Elasticsearch (Magento's own, Amasty Elastic Search or Smile ElasticSuite) does not answer a ping, or its cluster health is red (primary shards missing) | no connection test exists for the configured engine, or the cluster health is yellow on more than one data node |
 | `rabbitmq` | no connection to RabbitMQ with `queue/amqp` from `env.php` (passes without connecting when it is not configured) | |
+| `mysql_queue` | | 1000 or more messages wait in Magento's MySQL queues (`Magento_MysqlMq`), i.e. a consumer does not run. Measures `waiting`, `retry` and `failed` |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
 | `cron` | | no cron job finished within the threshold (15 minutes). The module adds an index on `cron_schedule` (`status`, `finished_at`) so this stays fast on a large table |
 | `deploy_mode` | | not in production mode, or the Composer autoloader is not optimized (`composer dump-autoload --optimize`) |
@@ -113,7 +115,7 @@ A check that throws an exception counts as failed, also an observer that does no
 
 - Without a key, the response is only the overall status (`pass`, `warn` or `fail`) and the HTTP status. Check names, messages, exception texts and versions are never shown.
 - With a key set, a request without the right key gets `403` and `Forbidden`, and no check runs.
-- Details (including exception messages, which can name hosts or database users) are only shown to requests with the key.
+- Details (including exception messages, which can name hosts or database users) are only shown to requests with the key. Credentials in exception messages, like `user:password@host` or `password=...`, are masked before they reach the response or the log.
 - The key is compared in constant time. It is stored as plain text in `core_config_data`, so anyone with database or config access can read it; it only guards the health details. It is marked sensitive, so `app:config:dump` does not write it to `config.php`.
 - `?key=` ends up in access logs. Prefer the `Authorization` header where the monitor supports it. On staging behind HTTP basic auth, the header is taken, so use `?key=` there.
 - There is no rate limiting. Use a long random key (the Generate Key button makes 48 hex characters).

@@ -40,7 +40,7 @@ class HealthCheck
                 $this->invoker->dispatch($observerConfig, $wrapper);
             } catch (\Throwable $e) {
                 // An observer that throws instead of adding a result still marks the application as down
-                $report->add((string) ($observerConfig['name'] ?? 'diagnose'), CheckResult::failed($e->getMessage()));
+                $report->add((string) ($observerConfig['name'] ?? 'diagnose'), CheckResult::failed(Redactor::redact($e->getMessage())));
             }
         }
 

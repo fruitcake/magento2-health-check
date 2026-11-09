@@ -14,6 +14,7 @@
                 <cache_types>1</cache_types>
                 <search_engine>1</search_engine>
                 <rabbitmq>1</rabbitmq>
+                <mysql_queue>1</mysql_queue>
                 <indexers>1</indexers>
                 <cron>1</cron>
                 <deploy_mode>1</deploy_mode>
@@ -26,6 +27,7 @@
             <thresholds>
                 <cron_max_minutes>15</cron_max_minutes>
                 <indexer_backlog>1000</indexer_backlog>
+                <queue_backlog>1000</queue_backlog>
                 <disk_free_warning>10</disk_free_warning>
                 <disk_free_failed>2</disk_free_failed>
             </thresholds>

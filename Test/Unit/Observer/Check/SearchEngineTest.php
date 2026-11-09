@@ -6,6 +6,7 @@ namespace Fruitcake\HealthCheck\Test\Unit\Observer\Check;
 
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\HealthReport;
+use Fruitcake\HealthCheck\Model\SearchEngine\ClusterHealth;
 use Fruitcake\HealthCheck\Model\SearchEngine\ConnectionTesterInterface;
 use Fruitcake\HealthCheck\Model\SearchEngine\CoreConnectionTester;
 use Fruitcake\HealthCheck\Model\SearchEngine\ElasticsuiteConnectionTester;
@@ -77,6 +78,35 @@ class SearchEngineTest extends TestCase
     /**
      * @param array<string, bool> $engines engine => reachable
      */
+    public function testRedClusterFails(): void
+    {
+        $result = $this->check('opensearch', [$this->tester(['opensearch' => true])], [
+            'status' => 'red', 'number_of_data_nodes' => 3, 'unassigned_shards' => 4, 'active_shards_percent_as_number' => 81.25,
+        ]);
+
+        $this->assertSame(CheckResult::FAILED, $result->status);
+        $this->assertSame('red', $result->meta['cluster_status']);
+        $this->assertSame(['value' => 81.3, 'unit' => 'percent'], $result->measurements['activeShards']);
+        $this->assertSame(['value' => 4, 'unit' => null], $result->measurements['unassignedShards']);
+    }
+
+    public function testYellowWarnsOnSeveralNodesOnly(): void
+    {
+        $cluster = $this->check('opensearch', [$this->tester(['opensearch' => true])], ['status' => 'yellow', 'number_of_data_nodes' => 3]);
+        $single = $this->check('opensearch', [$this->tester(['opensearch' => true])], ['status' => 'yellow', 'number_of_data_nodes' => 1]);
+
+        $this->assertSame(CheckResult::WARNING, $cluster->status);
+        $this->assertSame(CheckResult::OK, $single->status);
+    }
+
+    public function testUnreadableHealthPasses(): void
+    {
+        $result = $this->check('opensearch', [$this->tester(['opensearch' => true])], null);
+
+        $this->assertSame(CheckResult::OK, $result->status);
+        $this->assertArrayNotHasKey('cluster_status', $result->meta);
+    }
+
     private function tester(array $engines): ConnectionTesterInterface
     {
         $tester = $this->createMock(ConnectionTesterInterface::class);
@@ -88,14 +118,17 @@ class SearchEngineTest extends TestCase
     /**
      * @param ConnectionTesterInterface[] $testers
      */
-    private function check(string $engine, array $testers): CheckResult
+    private function check(string $engine, array $testers, ?array $health = null): CheckResult
     {
+        $clusterHealth = $this->createMock(ClusterHealth::class);
+        $clusterHealth->method('get')->willReturn($health);
+
         $engineResolver = $this->createMock(EngineResolverInterface::class);
         $engineResolver->method('getCurrentSearchEngine')->willReturn($engine);
 
         $config = $this->createConfig(['fruitcake_healthcheck/checks/search_engine' => '1']);
         $report = new HealthReport();
-        (new SearchEngine($config, $engineResolver, $testers))->execute(new Observer(['report' => $report]));
+        (new SearchEngine($config, $engineResolver, $clusterHealth, $testers))->execute(new Observer(['report' => $report]));
 
         return $report->getResults()['search_engine'];
     }
