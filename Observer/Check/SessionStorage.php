@@ -50,9 +50,20 @@ class SessionStorage extends AbstractCheck
             return CheckResult::warning(sprintf('No storage test available for session handler "%s"', $handler), $meta);
         }
 
-        return $works
-            ? CheckResult::ok('', $meta)
-            : CheckResult::failed(sprintf('Session storage "%s" cannot write and read back a session', $handler), $meta);
+        if (!$works) {
+            return CheckResult::failed(sprintf('Session storage "%s" cannot write and read back a session', $handler), $meta);
+        }
+
+        // The db handler only deletes old sessions in gc(), which PHP never calls with a probability of 0
+        // (the Debian/Ubuntu default: their cron job only cleans session files)
+        if ($handler === 'db' && (int) ini_get('session.gc_probability') <= 0) {
+            return CheckResult::warning(
+                'Session garbage collection is off (session.gc_probability = 0), so the session table is never cleaned',
+                $meta + ['gc_probability' => 0]
+            );
+        }
+
+        return CheckResult::ok('', $meta);
     }
 
     /**

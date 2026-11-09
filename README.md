@@ -71,7 +71,7 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 |---|---|---|
 | `database` | no connection | |
 | `cache_storage` | a cache frontend (default, page_cache) cannot write and read back a value | |
-| `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached) |
+| `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached), or database sessions without garbage collection (`session.gc_probability = 0`), so the `session` table keeps growing |
 | `cache_types` | | a cache type is disabled or invalidated |
 | `search_engine` | OpenSearch/Elasticsearch (Magento's own or Amasty Elastic Search) does not answer a ping | no connection test exists for the configured engine |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
