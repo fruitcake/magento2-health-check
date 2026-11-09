@@ -7,6 +7,18 @@
             </argument>
         </arguments>
     </type>
+    <!-- Response formats by name, for ?format=<name>. Without it, the first format whose matches() is true wins,
+         so Oh Dear (its secret header) comes before html (a browser); json is the default -->
+    <type name="Fruitcake\HealthCheck\Model\Format\FormatPool">
+        <arguments>
+            <argument name="formats" xsi:type="array">
+                <item name="ohdear" xsi:type="object">Fruitcake\HealthCheck\Model\Format\OhDear</item>
+                <item name="html" xsi:type="object">Fruitcake\HealthCheck\Model\Format\Html</item>
+                <item name="json" xsi:type="object">Fruitcake\HealthCheck\Model\Format\HealthJson</item>
+            </argument>
+            <argument name="defaultFormat" xsi:type="string">json</argument>
+        </arguments>
+    </type>
     <!-- Monitors that may use a real browser: they always get JSON, never the HTML page. Parts of the user agent -->
     <type name="Fruitcake\HealthCheck\Model\BrowserDetector">
         <arguments>

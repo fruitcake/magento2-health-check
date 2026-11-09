@@ -176,6 +176,26 @@ The `search_engine` check asks each tester in the pool whether it knows the conf
 
 An observer that does not extend `AbstractCheck` gets the report with `$observer->getData('report')` and calls `$report->add('code', CheckResult::warning('...'))`.
 
+## Adding a format
+
+The response formats (`json`, `ohdear`, `html`) are a pool in `di.xml`. Add one by implementing `Fruitcake\HealthCheck\Model\Format\FormatInterface`:
+
+- `getLabel()`: the name shown in the admin, e.g. in the format choice of the monitor URL.
+- `matches($request)`: whether the format suits a request without `?format=`, e.g. by a header. Return `false` to only use it with `?format=`.
+- `render($report, $details)`: a `FormatResult` with the body, content type and HTTP status. With `$details` false, show only the overall status, as for requests without the key.
+
+```xml
+<type name="Fruitcake\HealthCheck\Model\Format\FormatPool">
+    <arguments>
+        <argument name="formats" xsi:type="array">
+            <item name="prometheus" xsi:type="object">Vendor\Module\Model\PrometheusFormat</item>
+        </argument>
+    </arguments>
+</type>
+```
+
+`?format=prometheus` then picks it. Without `?format=`, the first format whose `matches()` is true wins, in the order of the pool, and `json` is the default. The key is checked before any format runs; a wrong key always gets `403` JSON.
+
 ## Tests
 
 ```

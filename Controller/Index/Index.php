@@ -4,122 +4,61 @@ declare(strict_types=1);
 
 namespace Fruitcake\HealthCheck\Controller\Index;
 
-use Fruitcake\HealthCheck\Model\BrowserDetector;
 use Fruitcake\HealthCheck\Model\Config;
-use Fruitcake\HealthCheck\Model\Format\Html;
+use Fruitcake\HealthCheck\Model\Format\FormatPool;
+use Fruitcake\HealthCheck\Model\Format\HealthJson;
 use Fruitcake\HealthCheck\Model\Format\OhDear;
 use Fruitcake\HealthCheck\Model\HealthCheck;
-use Fruitcake\HealthCheck\Model\ServiceInfo;
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\Controller\Result\RawFactory;
 use Magento\Framework\Controller\ResultInterface;
 
 /**
- * Responds in the format of draft-inadarei-api-health-check (application/health+json):
- * HTTP 200 for pass and warn, 503 for fail, 403 for a wrong key.
- *
- * Requests from Oh Dear (the oh-dear-health-check-secret header) or with ?format=ohdear get the format of
- * Oh Dear's Application Health monitoring instead, always with HTTP 200: the status is in the body.
- * A browser gets an HTML page with the same status code (see BrowserDetector).
+ * Checks the key, runs the checks and responds in the format the FormatPool picks: health+json by default,
+ * Oh Dear's format for Oh Dear, an HTML page in a browser, or ?format=<name>. A wrong key gets 403.
  */
 class Index implements HttpGetActionInterface
 {
-    private const OH_DEAR_HEADER = 'oh-dear-health-check-secret';
-
     public function __construct(
         private readonly HttpRequest $request,
         private readonly RawFactory $rawFactory,
         private readonly Config $config,
         private readonly HealthCheck $healthCheck,
-        private readonly ServiceInfo $serviceInfo,
-        private readonly OhDear $ohDearFormat,
-        private readonly BrowserDetector $browserDetector,
-        private readonly Html $htmlFormat
+        private readonly FormatPool $formatPool
     ) {
     }
 
     public function execute(): ResultInterface
     {
         if (!$this->config->isValidKey($this->getGivenKey())) {
-            // No status: the health of the application is unknown, not failed
-            return $this->respond(403, ['error' => 'Forbidden']);
+            // JSON in every format, without a status: the health of the application is unknown, not failed
+            return $this->respond(403, json_encode(['error' => 'Forbidden'], HealthJson::JSON_FLAGS), 'application/json');
         }
 
-        $report = $this->healthCheck->run();
-        if ($this->wantsOhDear()) {
-            return $this->respond(200, $this->ohDearFormat->toArray($report, $this->config->showDetails()), 'application/json');
-        }
+        $result = $this->formatPool->select($this->request)
+            ->render($this->healthCheck->run(), $this->config->showDetails());
 
-        $data = ['status' => $report->getStatus()];
-        if ($this->config->showDetails()) {
-            $output = $report->getOutput();
-            if ($output !== '') {
-                $data['output'] = $output;
-            }
-            // Which node answered and which deploy it runs; both say something about the infrastructure
-            $data += array_filter([
-                'serviceId' => $this->serviceInfo->getServiceId(),
-                'releaseId' => $this->serviceInfo->getReleaseId(),
-            ], static fn (string $value) => $value !== '');
-            // An object, also without checks
-            $data['checks'] = $report->toArray() ?: new \stdClass();
-        }
-
-        return $this->respond($report->isFailed() ? 503 : 200, $data, html: $this->wantsHtml());
+        return $this->respond($result->httpCode, $result->body, $result->contentType, $result->headers);
     }
 
     /**
-     * @param bool $html the page for browsers; Oh Dear and a 403 always get JSON
+     * @param array<string, string> $headers
      */
-    private function respond(
-        int $code,
-        array $data,
-        string $contentType = 'application/health+json',
-        bool $html = false
-    ): ResultInterface {
-        $flags = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR;
-        $result = $this->rawFactory->create();
-
-        if ($html) {
-            $result->setContents($this->htmlFormat->render($data, json_encode($data, $flags | JSON_PRETTY_PRINT)))
-                ->setHeader('Content-Type', 'text/html; charset=utf-8', true)
-                // Inline styles only: no scripts, no requests elsewhere, not in a frame
-                ->setHeader(
-                    'Content-Security-Policy',
-                    "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
-                    true
-                );
-        } else {
-            $result->setContents(json_encode($data, $flags))
-                ->setHeader('Content-Type', $contentType, true);
-        }
-
-        return $result
+    private function respond(int $code, string $body, string $contentType, array $headers = []): ResultInterface
+    {
+        $result = $this->rawFactory->create()
+            ->setContents($body)
+            ->setHeader('Content-Type', $contentType, true)
             ->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0', true)
             ->setHeader('X-Content-Type-Options', 'nosniff', true)
-            // The page differs per client, so a cache in between must not mix them up
-            ->setHeader('Vary', 'Sec-Fetch-Dest, User-Agent', true)
-            ->setHttpResponseCode($code);
-    }
-
-    private function wantsOhDear(): bool
-    {
-        return $this->request->getHeader(self::OH_DEAR_HEADER) !== false
-            || $this->request->getParam('format') === 'ohdear';
-    }
-
-    /**
-     * HTML for a person opening the endpoint in a browser, JSON for monitors. ?format=json or ?format=html decides.
-     */
-    private function wantsHtml(): bool
-    {
-        $format = $this->request->getParam('format');
-        if ($format === 'json' || $format === 'html') {
-            return $format === 'html';
+            // The format depends on the client, so a cache in between must not mix them up
+            ->setHeader('Vary', 'Sec-Fetch-Dest, User-Agent, ' . OhDear::SECRET_HEADER, true);
+        foreach ($headers as $name => $value) {
+            $result->setHeader($name, $value, true);
         }
 
-        return $this->browserDetector->isBrowser($this->request);
+        return $result->setHttpResponseCode($code);
     }
 
     /**
@@ -128,7 +67,7 @@ class Index implements HttpGetActionInterface
      */
     private function getGivenKey(): string
     {
-        $ohDearSecret = $this->request->getHeader(self::OH_DEAR_HEADER);
+        $ohDearSecret = $this->request->getHeader(OhDear::SECRET_HEADER);
         if (is_string($ohDearSecret) && $ohDearSecret !== '') {
             return trim($ohDearSecret);
         }

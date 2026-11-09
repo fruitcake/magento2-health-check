@@ -7,6 +7,9 @@ namespace Fruitcake\HealthCheck\Test\Unit\Controller\Index;
 use Fruitcake\HealthCheck\Controller\Index\Index;
 use Fruitcake\HealthCheck\Model\BrowserDetector;
 use Fruitcake\HealthCheck\Model\CheckResult;
+use Fruitcake\HealthCheck\Model\Config;
+use Fruitcake\HealthCheck\Model\Format\FormatPool;
+use Fruitcake\HealthCheck\Model\Format\HealthJson;
 use Fruitcake\HealthCheck\Model\Format\Html;
 use Fruitcake\HealthCheck\Model\Format\OhDear;
 use Fruitcake\HealthCheck\Model\HealthCheck;
@@ -451,11 +454,22 @@ class IndexTest extends TestCase
             $rawFactory,
             $moduleConfig,
             $healthCheck,
-            $serviceInfo,
-            new OhDear(),
-            new BrowserDetector($moduleConfig, ['statuscake' => 'StatusCake']),
-            new Html()
+            $this->formatPool($moduleConfig, $serviceInfo)
         );
+    }
+
+    /**
+     * The pool as in di.xml.
+     */
+    private function formatPool(Config $config, ServiceInfo $serviceInfo): FormatPool
+    {
+        $healthJson = new HealthJson($serviceInfo);
+
+        return new FormatPool([
+            'ohdear' => new OhDear(),
+            'html' => new Html($healthJson, new BrowserDetector($config, ['statuscake' => 'StatusCake'])),
+            'json' => $healthJson,
+        ]);
     }
 
     /**

@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 namespace Fruitcake\HealthCheck\Test\Unit\Model\Format;
 
+use Fruitcake\HealthCheck\Model\BrowserDetector;
+use Fruitcake\HealthCheck\Model\Config;
+use Fruitcake\HealthCheck\Model\Format\HealthJson;
 use Fruitcake\HealthCheck\Model\Format\Html;
+use Fruitcake\HealthCheck\Model\ServiceInfo;
 use PHPUnit\Framework\TestCase;
 
 class HtmlTest extends TestCase
@@ -50,6 +54,11 @@ class HtmlTest extends TestCase
     {
         $data = ['status' => 'warn', 'checks' => $checks];
 
-        return (new Html())->render($data, (string) json_encode($data));
+        $html = new Html(
+            new HealthJson($this->createMock(ServiceInfo::class)),
+            new BrowserDetector($this->createMock(Config::class))
+        );
+
+        return $html->renderPage($data, (string) json_encode($data));
     }
 }

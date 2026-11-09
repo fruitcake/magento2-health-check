@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Fruitcake\HealthCheck\Block\Adminhtml\System\Config;
 
+use Fruitcake\HealthCheck\Model\Format\FormatPool;
 use Magento\Backend\Block\Template\Context;
 use Magento\Config\Block\System\Config\Form\Field;
 use Magento\Framework\Data\Form\Element\AbstractElement;
@@ -19,6 +20,7 @@ class MonitorUrlField extends Field
     public function __construct(
         Context $context,
         private readonly SecureHtmlRenderer $secureHtmlRenderer,
+        private readonly FormatPool $formatPool,
         array $data = []
     ) {
         parent::__construct($context, $data, $secureHtmlRenderer);
@@ -49,7 +51,7 @@ class MonitorUrlField extends Field
             . "  var value = key ? key.value.trim() : '';"
             . "  var query = [];"
             . "  if (value) { query.push('key=' + encodeURIComponent(value)); }"
-            . "  if (format.value) { query.push('format=' + format.value); }"
+            . "  if (format.value) { query.push('format=' + encodeURIComponent(format.value)); }"
             . "  output.value = %s + path + (query.length ? '?' + query.join('&') : '');"
             . "};"
             . "[endpoint, key, format].forEach(function (field) {"
@@ -78,13 +80,10 @@ class MonitorUrlField extends Field
         )
             // Only changes the URL to copy; without a name, nothing is saved
             . sprintf(
-                '<select id="%s" class="admin__control-select" style="margin: 8px 8px 0 0" title="%s">'
-                . '<option value="">%s</option><option value="json">%s</option><option value="html">%s</option></select>',
+                '<select id="%s" class="admin__control-select" style="margin: 8px 8px 0 0" title="%s">%s</select>',
                 $this->escapeHtmlAttr($formatId),
                 $this->escapeHtmlAttr(__('Format of the copied URL')),
-                $this->escapeHtml(__('Auto: HTML in a browser, JSON for monitors')),
-                $this->escapeHtml(__('Always JSON')),
-                $this->escapeHtml(__('Always HTML'))
+                $this->getFormatOptions()
             )
             . sprintf(
                 '<button type="button" id="%s" class="action-default" style="margin-top: 8px">%s</button>',
@@ -93,6 +92,23 @@ class MonitorUrlField extends Field
             )
             . $this->secureHtmlRenderer->renderTag('script', [], $script, false)
             . $this->secureHtmlRenderer->renderEventListenerAsTag('onclick', $copy, '#' . $buttonId);
+    }
+
+    /**
+     * "Auto" plus every format in the pool, so a format another module adds shows up too.
+     */
+    private function getFormatOptions(): string
+    {
+        $options = sprintf('<option value="">%s</option>', $this->escapeHtml(__('Auto: by the client')));
+        foreach ($this->formatPool->getFormats() as $name => $format) {
+            $options .= sprintf(
+                '<option value="%s">%s</option>',
+                $this->escapeHtmlAttr((string) $name),
+                $this->escapeHtml(__('Always %1', $format->getLabel()))
+            );
+        }
+
+        return $options;
     }
 
     /**

@@ -4,14 +4,50 @@ declare(strict_types=1);
 
 namespace Fruitcake\HealthCheck\Model\Format;
 
+use Fruitcake\HealthCheck\Model\BrowserDetector;
+use Fruitcake\HealthCheck\Model\HealthReport;
+use Magento\Framework\App\Request\Http as HttpRequest;
+
 /**
  * A page for people who open the endpoint in a browser: the status, a table of the checks, and the
  * JSON itself, so a keyword check on e.g. "pass" still matches if a monitor ever gets this page.
- * Every value is escaped: messages can hold exception texts.
+ * The same data and HTTP status as the health+json format. Every value is escaped: messages can
+ * hold exception texts.
  */
-class Html
+class Html implements FormatInterface
 {
-    public function render(array $data, string $json): string
+    // Inline styles only: no scripts, no requests elsewhere, not in a frame
+    private const CSP = "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'";
+
+    public function __construct(
+        private readonly HealthJson $healthJson,
+        private readonly BrowserDetector $browserDetector
+    ) {
+    }
+
+    public function getLabel(): string
+    {
+        return 'HTML';
+    }
+
+    public function matches(HttpRequest $request): bool
+    {
+        return $this->browserDetector->isBrowser($request);
+    }
+
+    public function render(HealthReport $report, bool $details): FormatResult
+    {
+        $data = $this->healthJson->toArray($report, $details);
+
+        return new FormatResult(
+            $this->renderPage($data, json_encode($data, HealthJson::JSON_FLAGS | JSON_PRETTY_PRINT)),
+            'text/html; charset=utf-8',
+            $this->healthJson->getHttpCode($report),
+            ['Content-Security-Policy' => self::CSP]
+        );
+    }
+
+    public function renderPage(array $data, string $json): string
     {
         $status = (string) ($data['status'] ?? '');
         $rows = '';
