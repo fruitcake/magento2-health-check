@@ -85,6 +85,7 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 | `debug` | | template hints, debug logging or inline translation is on |
 | `disk_space` | free space on `var/` below 2% | free space below 10% |
 | `opcache` | | OPcache is off, its status is not available (`opcache.restrict_api`), 90% of its memory or keys (`opcache.max_accelerated_files`) is used, or the hit rate is below 90% after 10,000 requests. The result is per web node |
+| `two_factor_auth` | | admin two-factor authentication is off: `Magento_TwoFactorAuth` is disabled, or `twofactorauth/general/enable` is 0 (e.g. MarkShust_DisableTwoFactorAuth). Use `Yes, warnings fail in production mode` to fail on production only |
 
 A check that throws an exception counts as failed, also an observer that does not extend `AbstractCheck`; the checks after it still run. Failed checks are logged, the same failure at most once every 5 minutes.
 
