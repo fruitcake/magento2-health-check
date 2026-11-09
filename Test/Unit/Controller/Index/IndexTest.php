@@ -8,6 +8,7 @@ use Fruitcake\HealthCheck\Controller\Index\Index;
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\HealthCheck;
 use Fruitcake\HealthCheck\Model\HealthReport;
+use Fruitcake\HealthCheck\Model\ServiceInfo;
 use Fruitcake\HealthCheck\Test\Unit\ConfigStub;
 use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\App\Response\HttpInterface as HttpResponse;
@@ -23,6 +24,8 @@ use Psr\Log\LoggerInterface;
 class IndexTest extends TestCase
 {
     use ConfigStub;
+
+    private string $releaseId = '1731151234';
 
     private const KEY_CONFIG = [
         'fruitcake_healthcheck/general/key' => 'secret',
@@ -181,6 +184,8 @@ class IndexTest extends TestCase
         $this->assertSame([
             'status' => 'warn',
             'output' => 'cron: late',
+            'serviceId' => 'web1',
+            'releaseId' => '1731151234',
             'checks' => [
                 'database' => [['status' => 'pass', 'durationMs' => 1.2]],
                 'cron' => [['status' => 'warn', 'output' => 'late', 'meta' => ['minutes_ago' => 20]]],
@@ -211,13 +216,24 @@ class IndexTest extends TestCase
         $this->assertArrayNotHasKey('output', json_decode($response['body'], true));
     }
 
+    public function testNoReleaseIdWithoutDeployedVersion(): void
+    {
+        $this->releaseId = '';
+        $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
+
+        $body = json_decode($this->call([], $config, ['Authorization' => 'Bearer secret'])['body'], true);
+
+        $this->assertSame('web1', $body['serviceId']);
+        $this->assertArrayNotHasKey('releaseId', $body);
+    }
+
     public function testChecksIsAnObjectWhenNoCheckRan(): void
     {
         $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
 
         $response = $this->call([], $config, ['Authorization' => 'Bearer secret']);
 
-        $this->assertSame('{"status":"pass","checks":{}}', $response['body']);
+        $this->assertSame('{"status":"pass","serviceId":"web1","releaseId":"1731151234","checks":{}}', $response['body']);
     }
 
     /**
@@ -259,11 +275,16 @@ class IndexTest extends TestCase
         $rawFactory = $this->createMock(RawFactory::class);
         $rawFactory->method('create')->willReturnCallback(static fn () => new Raw());
 
+        $serviceInfo = $this->createMock(ServiceInfo::class);
+        $serviceInfo->method('getServiceId')->willReturn('web1');
+        $serviceInfo->method('getReleaseId')->willReturn($this->releaseId);
+
         return new Index(
             $request,
             $rawFactory,
             $this->createConfig($config + ['fruitcake_healthcheck/general/enabled' => '1']),
-            $healthCheck
+            $healthCheck,
+            $serviceInfo
         );
     }
 
