@@ -14,7 +14,7 @@ use Magento\Framework\Cache\FrontendInterface;
  * Writes, reads and removes a value in every cache frontend (default, page_cache, ...).
  * The meta lists the backend of each frontend, e.g. {"default": "Redis", "page_cache": "File"}.
  */
-class Cache extends AbstractCheck
+class CacheStorage extends AbstractCheck
 {
     public function __construct(
         Config $config,
@@ -25,7 +25,7 @@ class Cache extends AbstractCheck
 
     public function getCode(): string
     {
-        return 'cache';
+        return 'cache_storage';
     }
 
     protected function check(): CheckResult

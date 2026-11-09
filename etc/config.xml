@@ -9,7 +9,7 @@
             </general>
             <checks>
                 <database>1</database>
-                <cache>1</cache>
+                <cache_storage>1</cache_storage>
                 <cache_types>1</cache_types>
                 <search_engine>1</search_engine>
                 <indexers>1</indexers>

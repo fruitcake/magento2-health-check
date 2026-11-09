@@ -6,14 +6,14 @@ namespace Fruitcake\HealthCheck\Test\Unit\Observer\Check;
 
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\HealthReport;
-use Fruitcake\HealthCheck\Observer\Check\Cache;
+use Fruitcake\HealthCheck\Observer\Check\CacheStorage;
 use Fruitcake\HealthCheck\Test\Unit\ConfigStub;
 use Magento\Framework\App\Cache\Frontend\Pool;
 use Magento\Framework\Cache\FrontendInterface;
 use Magento\Framework\Event\Observer;
 use PHPUnit\Framework\TestCase;
 
-class CacheTest extends TestCase
+class CacheStorageTest extends TestCase
 {
     use ConfigStub;
 
@@ -84,9 +84,9 @@ class CacheTest extends TestCase
         $pool->method('next')->willReturnCallback(static fn () => $iterator->next());
 
         $report = new HealthReport();
-        $check = new Cache($this->createConfig(['fruitcake_healthcheck/checks/cache' => '1']), $pool);
+        $check = new CacheStorage($this->createConfig(['fruitcake_healthcheck/checks/cache_storage' => '1']), $pool);
         $check->execute(new Observer(['report' => $report]));
 
-        return $report->getResults()['cache'];
+        return $report->getResults()['cache_storage'];
     }
 }
