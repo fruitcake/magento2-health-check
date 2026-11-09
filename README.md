@@ -2,6 +2,9 @@
 
 A health check endpoint for Magento 2 at `/health`, similar to Laravel's `/up` route. Other modules can add their own checks through an event.
 
+<img width="2024" height="1660" alt="Screenshot 2026-11-09 at 14 00 47@2x" src="https://github.com/user-attachments/assets/8ca018f9-e369-4130-9b5d-a4bf7451cda9" />
+
+
 ## Install
 
 ```
