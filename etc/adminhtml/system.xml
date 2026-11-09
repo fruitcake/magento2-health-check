@@ -72,6 +72,11 @@
                     <label>Search Engine (OpenSearch/Elasticsearch)</label>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>
+                <field id="rabbitmq" translate="label comment" type="select" sortOrder="45" showInDefault="1">
+                    <label>RabbitMQ</label>
+                    <comment>Connects with queue/amqp from env.php. Passes when no RabbitMQ is configured.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
                 <field id="indexers" translate="label comment" type="select" sortOrder="50" showInDefault="1">
                     <label>Indexers</label>
                     <comment>Warns about invalid indexers and a large changelog backlog.</comment>

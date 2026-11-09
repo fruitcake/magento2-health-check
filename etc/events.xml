@@ -5,6 +5,7 @@
         <observer name="fruitcake_healthcheck_cache_storage" instance="Fruitcake\HealthCheck\Observer\Check\CacheStorage"/>
         <observer name="fruitcake_healthcheck_session_storage" instance="Fruitcake\HealthCheck\Observer\Check\SessionStorage"/>
         <observer name="fruitcake_healthcheck_cache_types" instance="Fruitcake\HealthCheck\Observer\Check\CacheTypes"/>
+        <observer name="fruitcake_healthcheck_rabbitmq" instance="Fruitcake\HealthCheck\Observer\Check\Rabbitmq"/>
         <observer name="fruitcake_healthcheck_search_engine" instance="Fruitcake\HealthCheck\Observer\Check\SearchEngine"/>
         <observer name="fruitcake_healthcheck_indexers" instance="Fruitcake\HealthCheck\Observer\Check\Indexers"/>
         <observer name="fruitcake_healthcheck_cron" instance="Fruitcake\HealthCheck\Observer\Check\Cron"/>
