@@ -22,11 +22,18 @@
                         <field id="enabled">1</field>
                     </depends>
                 </field>
-                <field id="key" translate="label comment" type="obscure" sortOrder="30" showInDefault="1">
+                <field id="key" translate="label comment" type="text" sortOrder="30" showInDefault="1">
                     <label>Key</label>
                     <comment>When set, requests need an "Authorization: Bearer ..." header or ?key=.... Leave empty for a public endpoint that only returns the overall status. Use a long random key: there is no rate limiting.</comment>
-                    <backend_model>Magento\Config\Model\Config\Backend\Encrypted</backend_model>
                     <frontend_model>Fruitcake\HealthCheck\Block\Adminhtml\System\Config\KeyField</frontend_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
+                <field id="monitor_url" translate="label comment" type="text" sortOrder="35" showInDefault="1">
+                    <label>Monitor URL</label>
+                    <comment>The endpoint with the key of the default store view, for monitors that cannot send headers. Follows the fields above as you type; save to make it work.</comment>
+                    <frontend_model>Fruitcake\HealthCheck\Block\Adminhtml\System\Config\MonitorUrlField</frontend_model>
                     <depends>
                         <field id="enabled">1</field>
                     </depends>

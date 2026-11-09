@@ -35,17 +35,33 @@ class Config
         return $endpoint !== '' ? $endpoint : 'up';
     }
 
+    /**
+     * The key is stored as plain text. Versions before 1.0 stored it encrypted ("0:3:..."), which still works.
+     */
     public function getKey(): string
     {
         $value = trim((string) $this->scopeConfig->getValue(self::PREFIX . 'general/key'));
-        if ($value === '') {
-            return '';
+        if (!self::isEncrypted($value)) {
+            return $value;
         }
 
-        // A value that does not decrypt (plain text in env.php) is the key itself, so the endpoint never ends up open
-        $decrypted = (string) $this->encryptor->decrypt($value);
+        try {
+            $decrypted = trim((string) $this->encryptor->decrypt($value));
+        } catch (\Throwable $e) {
+            $decrypted = '';
+        }
 
+        // A value that does not decrypt is used as is, so the endpoint never ends up open
         return $decrypted !== '' ? $decrypted : $value;
+    }
+
+    /**
+     * Magento's encrypted format: key version, cipher version and data, e.g. "0:3:abc...".
+     * Only those values go through decrypt(): it treats anything else as legacy Blowfish and throws or returns garbage.
+     */
+    public static function isEncrypted(string $value): bool
+    {
+        return (bool) preg_match('/^\d+:\d+:/', $value);
     }
 
     public function hasKey(): bool

@@ -57,7 +57,8 @@ The module works right after install: `/up` is public, returns only the overall 
 Stores > Configuration > Fruitcake Extensions > Health Check:
 
 - **Endpoint**: the path, `up` by default.
-- **Key**: when set, requests need an `Authorization: Bearer <key>` header, or `?key=<key>` for monitors that cannot send headers. **Generate Key** fills in a random key and shows it, so you can copy it before saving. The key is stored encrypted. Set it from the CLI with `bin/magento config:set fruitcake_healthcheck/general/key <key>`.
+- **Key**: when set, requests need an `Authorization: Bearer <key>` header, or `?key=<key>` for monitors that cannot send headers. **Generate Key** fills in a random key. The key is stored as plain text, so it stays readable in the admin. Keys stored encrypted by 0.x still work and are saved as plain text on the next save. Set it from the CLI with `bin/magento config:set fruitcake_healthcheck/general/key <key>`, or in `env.php`.
+- **Monitor URL**: the full URL with `?key=` for the default store view, with a **Copy URL** button. It follows the endpoint and key fields as you type, so save before using it.
 - **Show Check Details**: adds every check with its status, message, meta data and duration to the response. On by default, but only applies when a key is set.
 - **Checks**: per check `No`, `Yes`, `Yes, warnings fail` or `Yes, warnings fail in production mode`. A strict check reports its warnings as failures, so the endpoint returns 503, e.g. when cron is behind. Keep checks non-strict when a load balancer uses the endpoint, or an invalid indexer takes every node out of rotation.
 - **Thresholds**: cron age, indexer backlog and free disk space.
@@ -88,7 +89,7 @@ A check that throws an exception counts as failed, also an observer that does no
 - Without a key, the response is only the overall status (`pass`, `warn` or `fail`) and the HTTP status. Check names, messages, exception texts and versions are never shown.
 - With a key set, a request without the right key gets `403` and `Forbidden`, and no check runs.
 - Details (including exception messages, which can name hosts or database users) are only shown to requests with the key.
-- The key is compared in constant time. A key that cannot be decrypted, e.g. plain text written into `env.php`, is used as is, so the endpoint never falls back to public.
+- The key is compared in constant time. It is stored as plain text in `core_config_data`, so anyone with database or config access can read it; it only guards the health details. It is marked sensitive, so `app:config:dump` does not write it to `config.php`.
 - `?key=` ends up in access logs. Prefer the `Authorization` header where the monitor supports it. On staging behind HTTP basic auth, the header is taken, so use `?key=` there.
 - There is no rate limiting. Use a long random key (the Generate Key button makes 48 hex characters).
 - Pick an endpoint no other page uses: the router runs before Magento's own routes.
