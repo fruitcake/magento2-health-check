@@ -7,6 +7,7 @@ namespace Fruitcake\HealthCheck\Controller\Index;
 use Fruitcake\HealthCheck\Model\Config;
 use Fruitcake\HealthCheck\Model\Format\OhDear;
 use Fruitcake\HealthCheck\Model\HealthCheck;
+use Fruitcake\HealthCheck\Model\ServiceInfo;
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\Controller\Result\RawFactory;
@@ -28,6 +29,7 @@ class Index implements HttpGetActionInterface
         private readonly RawFactory $rawFactory,
         private readonly Config $config,
         private readonly HealthCheck $healthCheck,
+        private readonly ServiceInfo $serviceInfo,
         private readonly OhDear $ohDearFormat
     ) {
     }
@@ -50,6 +52,11 @@ class Index implements HttpGetActionInterface
             if ($output !== '') {
                 $data['output'] = $output;
             }
+            // Which node answered and which deploy it runs; both say something about the infrastructure
+            $data += array_filter([
+                'serviceId' => $this->serviceInfo->getServiceId(),
+                'releaseId' => $this->serviceInfo->getReleaseId(),
+            ], static fn (string $value) => $value !== '');
             // An object, also without checks
             $data['checks'] = $report->toArray() ?: new \stdClass();
         }
