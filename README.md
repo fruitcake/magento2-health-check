@@ -32,6 +32,9 @@ With a key set, the response lists every check:
 curl -H 'Authorization: Bearer <key>' https://example.com/up
 {
   "status": "warn",
+  "output": "cron: Last cron job finished 42 minutes ago",
+  "serviceId": "web1",
+  "releaseId": "1731151234",
   "checks": {
     "database": [{"status": "pass", "durationMs": 1.2}],
     "cron": [{"status": "warn", "output": "Last cron job finished 42 minutes ago", "durationMs": 0.8, "meta": {"last_finished_at": "2026-11-09T10:18:00+00:00", "minutes_ago": 42}}],
@@ -39,6 +42,8 @@ curl -H 'Authorization: Bearer <key>' https://example.com/up
   }
 }
 ```
+
+With details, the response also has `serviceId`, the hostname of the node that answered, and `releaseId`, the static content version from `pub/static/deployed_version.txt`. `setup:static-content:deploy` writes that file on every deploy, whatever the deploy tool, so after a deploy you can see whether every node runs the same release. `releaseId` is left out when the file does not exist, e.g. in developer mode.
 
 With details, a `warn` or `fail` response also gets a top-level `output` with every check that did not pass, failures first, so a monitor shows the reason without digging through `checks`:
 
