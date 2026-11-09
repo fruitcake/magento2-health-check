@@ -23,7 +23,7 @@ class HtmlTest extends TestCase
             'opcache' => [['status' => 'warn']],
         ]);
 
-        preg_match_all('#<tr><td>([a-z_]+)</td>#', $html, $matches);
+        preg_match_all('#data-check="([a-z_]+)"#', $html, $matches);
         $this->assertSame(['search_engine', 'cron', 'opcache', 'database', 'cache_storage'], $matches[1]);
     }
 
