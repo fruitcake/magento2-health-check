@@ -8,8 +8,7 @@ use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\Config;
 use Fruitcake\HealthCheck\Observer\AbstractCheck;
 use Magento\Framework\App\DeploymentConfig;
-use Magento\Framework\App\Filesystem\DirectoryList;
-use Magento\Framework\Filesystem;
+use Magento\Framework\Session\Config\ConfigInterface as SessionConfig;
 use Magento\Framework\Session\SaveHandlerFactory;
 use Magento\Framework\Session\SaveHandlerInterface;
 
@@ -25,7 +24,7 @@ class SessionStorage extends AbstractCheck
         Config $config,
         private readonly DeploymentConfig $deploymentConfig,
         private readonly SaveHandlerFactory $saveHandlerFactory,
-        private readonly Filesystem $filesystem
+        private readonly SessionConfig $sessionConfig
     ) {
         parent::__construct($config);
     }
@@ -71,18 +70,25 @@ class SessionStorage extends AbstractCheck
     }
 
     /**
-     * PHP's own files handler only works inside an active session, so test the directory instead.
+     * PHP's own files handler only works inside an active session, so write a session file the way it does:
+     * in the save path Magento gives PHP (env.php, php.ini or var/session, which Magento creates), and with
+     * "N;/path" in N levels of subdirectories named after the first characters of the session id.
      */
     private function testFiles(): bool
     {
-        $path = (string) ($this->deploymentConfig->get('session/save_path') ?: ini_get('session.save_path'));
-        if ($path === '') {
-            $path = $this->filesystem->getDirectoryRead(DirectoryList::SESSION)->getAbsolutePath();
-        }
-        // session.save_path may be "N;/path" or "N;MODE;/path"
-        $path = rtrim(substr($path, (int) strrpos(';' . $path, ';')), '/');
+        $savePath = $this->sessionConfig->getSavePath();
+        $parts = explode(';', $savePath);
+        $path = rtrim((string) array_pop($parts), '/');
+        $depth = count($parts) > 0 ? (int) $parts[0] : 0;
 
-        $file = $path . '/sess_fruitcake_healthcheck_' . bin2hex(random_bytes(8));
+        // Hex characters only, which exist as subdirectory names whatever session.sid_bits_per_character is
+        $sessionId = bin2hex(random_bytes(16));
+        $dir = $path;
+        for ($i = 0; $i < $depth; $i++) {
+            $dir .= '/' . $sessionId[$i];
+        }
+
+        $file = $dir . '/sess_' . $sessionId;
         $value = (string) time();
         try {
             return @file_put_contents($file, $value) !== false && @file_get_contents($file) === $value;

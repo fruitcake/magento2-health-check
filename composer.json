@@ -23,6 +23,7 @@
         "magento/module-advanced-search": "*",
         "magento/module-backend": "*",
         "magento/module-config": "*",
+        "magento/module-cron": "*",
         "magento/module-indexer": "*",
         "magento/module-search": "*",
         "magento/module-store": "*"

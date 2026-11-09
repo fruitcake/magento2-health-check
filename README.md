@@ -74,14 +74,14 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 | `cache_types` | | a cache type is disabled or invalidated |
 | `search_engine` | OpenSearch/Elasticsearch (Magento's own or Amasty Elastic Search) does not answer a ping | no connection test exists for the configured engine |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
-| `cron` | | no cron job finished within the threshold (15 minutes) |
+| `cron` | | no cron job finished within the threshold (15 minutes). The module adds an index on `cron_schedule` (`status`, `finished_at`) so this stays fast on a large table |
 | `deploy_mode` | | not in production mode |
 | `debug` | | template hints, debug logging or inline translation is on |
 | `disk_space` | free space on `var/` below 2% | free space below 10% |
 
-A check that throws an exception counts as failed. Failed checks are logged.
+A check that throws an exception counts as failed, also an observer that does not extend `AbstractCheck`; the checks after it still run. Failed checks are logged, the same failure at most once every 5 minutes.
 
-`session_storage` tests the handler itself. Magento falls back to file sessions when Redis is down, so the shop seems to work while every node keeps its own sessions and customers get logged out.
+`session_storage` tests the handler itself. Magento falls back to file sessions when Redis is down, so the shop seems to work while every node keeps its own sessions and customers get logged out. For file sessions it writes in the save path PHP uses, including the subdirectories of a `N;/path` save path.
 
 ## Security
 

@@ -13,7 +13,10 @@ use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\App\Response\HttpInterface as HttpResponse;
 use Magento\Framework\Controller\Result\Raw;
 use Magento\Framework\Controller\Result\RawFactory;
-use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\App\CacheInterface;
+use Magento\Framework\Event\ConfigInterface as EventConfig;
+use Magento\Framework\Event\InvokerInterface;
+use Magento\Framework\Event\Observer;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -65,10 +68,10 @@ class IndexTest extends TestCase
 
     public function testObserverThatThrowsReturns503(): void
     {
-        $eventManager = $this->createMock(ManagerInterface::class);
-        $eventManager->method('dispatch')->willThrowException(new \RuntimeException('broken observer'));
+        $invoker = $this->createMock(InvokerInterface::class);
+        $invoker->method('dispatch')->willThrowException(new \RuntimeException('broken observer'));
 
-        $response = $this->render($this->controller([], [], $eventManager));
+        $response = $this->render($this->controller([], [], $this->healthCheck($invoker)));
 
         $this->assertSame(503, $response['code']);
     }
@@ -130,6 +133,18 @@ class IndexTest extends TestCase
         $response = $this->call(['database' => CheckResult::ok()], self::KEY_CONFIG, params: ['key' => 'secret']);
 
         $this->assertSame(200, $response['code']);
+    }
+
+    public function testArrayKeyParameterIsForbidden(): void
+    {
+        $response = $this->call(
+            ['database' => CheckResult::ok()],
+            self::KEY_CONFIG,
+            params: ['key' => ['secret']],
+            expectChecks: false
+        );
+
+        $this->assertSame(403, $response['code']);
     }
 
     public function testHidesDetailsWithoutKeyEvenWhenEnabled(): void
@@ -204,25 +219,24 @@ class IndexTest extends TestCase
         array $params = [],
         bool $expectChecks = true
     ): array {
-        $eventManager = $this->createMock(ManagerInterface::class);
-        $eventManager->expects($expectChecks ? $this->once() : $this->never())
+        $invoker = $this->createMock(InvokerInterface::class);
+        $invoker->expects($expectChecks ? $this->once() : $this->never())
             ->method('dispatch')
-            ->with(HealthCheck::EVENT)
-            ->willReturnCallback(static function (string $event, array $data) use ($checks) {
+            ->willReturnCallback(static function (array $observerConfig, Observer $observer) use ($checks) {
                 /** @var HealthReport $report */
-                $report = $data['report'];
+                $report = $observer->getData('report');
                 foreach ($checks as $code => $result) {
                     $report->add($code, $result);
                 }
             });
 
-        return $this->render($this->controller($headers, $params, $eventManager, $config));
+        return $this->render($this->controller($headers, $params, $this->healthCheck($invoker), $config));
     }
 
     private function controller(
         array $headers,
         array $params,
-        ManagerInterface $eventManager,
+        HealthCheck $healthCheck,
         array $config = []
     ): Index {
         $request = $this->createMock(HttpRequest::class);
@@ -238,7 +252,25 @@ class IndexTest extends TestCase
             $request,
             $rawFactory,
             $this->createConfig($config + ['fruitcake_healthcheck/general/enabled' => '1']),
-            new HealthCheck($eventManager, $this->createMock(LoggerInterface::class))
+            $healthCheck
+        );
+    }
+
+    /**
+     * A HealthCheck with one registered observer, run by the given invoker.
+     */
+    private function healthCheck(InvokerInterface $invoker): HealthCheck
+    {
+        $eventConfig = $this->createMock(EventConfig::class);
+        $eventConfig->method('getObservers')->with(HealthCheck::EVENT)->willReturn([
+            'test' => ['name' => 'test', 'instance' => 'Test\\Observer'],
+        ]);
+
+        return new HealthCheck(
+            $eventConfig,
+            $invoker,
+            $this->createMock(CacheInterface::class),
+            $this->createMock(LoggerInterface::class)
         );
     }
 
