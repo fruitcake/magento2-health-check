@@ -35,6 +35,9 @@ class Index implements HttpGetActionInterface
         $report = $this->healthCheck->run();
         $data = ['status' => $report->getStatus()];
         if ($this->config->showDetails()) {
+            if ($report->getOutput() !== '') {
+                $data['output'] = $report->getOutput();
+            }
             // An object, also without checks
             $data['checks'] = $report->toArray() ?: new \stdClass();
         }

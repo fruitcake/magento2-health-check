@@ -154,11 +154,35 @@ class IndexTest extends TestCase
 
         $this->assertSame([
             'status' => 'warn',
+            'output' => 'cron: late',
             'checks' => [
                 'database' => [['status' => 'pass', 'durationMs' => 1.2]],
                 'cron' => [['status' => 'warn', 'output' => 'late', 'meta' => ['minutes_ago' => 20]]],
             ],
         ], json_decode($response['body'], true));
+    }
+
+    public function testOutputListsFailuresBeforeWarnings(): void
+    {
+        $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
+        $checks = [
+            'database' => CheckResult::ok(),
+            'cron' => CheckResult::warning('late'),
+            'search_engine' => CheckResult::failed('not reachable'),
+        ];
+
+        $response = $this->call($checks, $config, ['Authorization' => 'Bearer secret']);
+
+        $this->assertSame('search_engine: not reachable; cron: late', json_decode($response['body'], true)['output']);
+    }
+
+    public function testNoOutputWhenEverythingPasses(): void
+    {
+        $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
+
+        $response = $this->call(['database' => CheckResult::ok()], $config, ['Authorization' => 'Bearer secret']);
+
+        $this->assertArrayNotHasKey('output', json_decode($response['body'], true));
     }
 
     public function testChecksIsAnObjectWhenNoCheckRan(): void
