@@ -62,17 +62,36 @@ class AbstractCheckTest extends TestCase
         $this->assertSame('late', $report->getResults()['test']->message);
     }
 
-    private function runCheck(callable $check, ?string $mode, string $appMode = State::MODE_PRODUCTION): HealthReport
+    public function testOnlyServiceChecksReportResponseTime(): void
     {
+        $config = $this->runCheck(static fn () => CheckResult::ok(), '1')->getResults()['test'];
+        $service = $this->runCheck(static fn () => CheckResult::ok(), '1', service: true)->getResults()['test'];
+
+        $this->assertSame([], $config->measurements);
+        $this->assertSame('ms', $service->measurements['responseTime']['unit']);
+        $this->assertIsFloat($service->measurements['responseTime']['value']);
+    }
+
+    private function runCheck(
+        callable $check,
+        ?string $mode,
+        string $appMode = State::MODE_PRODUCTION,
+        bool $service = false
+    ): HealthReport {
         $config = $this->createConfig(['fruitcake_healthcheck/checks/test' => $mode], $appMode);
-        $observer = new class($config, $check) extends AbstractCheck {
+        $observer = new class($config, $check, $service) extends AbstractCheck {
             /** @var callable */
             private $callback;
 
-            public function __construct(Config $config, callable $callback)
+            public function __construct(Config $config, callable $callback, private readonly bool $service)
             {
                 parent::__construct($config);
                 $this->callback = $callback;
+            }
+
+            protected function measuresResponseTime(): bool
+            {
+                return $this->service;
             }
 
             public function getCode(): string

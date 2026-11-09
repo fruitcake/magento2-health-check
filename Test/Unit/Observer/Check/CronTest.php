@@ -37,7 +37,7 @@ class CronTest extends TestCase
         $result = $this->check(gmdate('Y-m-d H:i:s', time() - 5 * 60));
 
         $this->assertSame(CheckResult::OK, $result->status);
-        $this->assertSame(5, $result->meta['minutes_ago']);
+        $this->assertSame(5, $result->measurements['lastFinished']['value']);
     }
 
     public function testJobOlderThanThresholdWarns(): void
@@ -45,7 +45,7 @@ class CronTest extends TestCase
         $result = $this->check(gmdate('Y-m-d H:i:s', time() - 20 * 60));
 
         $this->assertSame(CheckResult::WARNING, $result->status);
-        $this->assertSame(20, $result->meta['minutes_ago']);
+        $this->assertSame(20, $result->measurements['lastFinished']['value']);
     }
 
     public function testNoFinishedJobWarns(): void

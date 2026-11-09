@@ -36,9 +36,13 @@ curl -H 'Authorization: Bearer <key>' https://example.com/health
   "serviceId": "web1",
   "releaseId": "1731151234",
   "checks": {
-    "database": [{"status": "pass", "durationMs": 1.2}],
-    "cron": [{"status": "warn", "output": "Last cron job finished 42 minutes ago", "durationMs": 0.8, "meta": {"last_finished_at": "2026-11-09T10:18:00+00:00", "minutes_ago": 42}}],
-    "disk_space": [{"status": "pass", "durationMs": 0.1, "meta": {"free_percent": 61.3, "free_mb": 48213}}]
+    "database": [{"status": "pass"}],
+    "database:responseTime": [{"observedValue": 1.2, "observedUnit": "ms", "status": "pass"}],
+    "cron": [{"status": "warn", "output": "Last cron job finished 42 minutes ago", "meta": {"last_finished_at": "2026-11-09T10:18:00+00:00"}}],
+    "cron:lastFinished": [{"observedValue": 42, "observedUnit": "min", "status": "warn"}],
+    "disk_space": [{"status": "pass"}],
+    "disk_space:free": [{"observedValue": 61.3, "observedUnit": "percent", "status": "pass"}],
+    "disk_space:freeSpace": [{"observedValue": 48213, "observedUnit": "MiB", "status": "pass"}]
   }
 }
 ```
@@ -51,7 +55,7 @@ With details, a `warn` or `fail` response also gets a top-level `output` with ev
 {"status": "fail", "output": "search_engine: Search engine \"elasticsearch8\" is not reachable; cron: Last cron job finished 42 minutes ago", "checks": {...}}
 ```
 
-Each check holds a list with one check object, as the draft prescribes. `output` holds the message for `warn` and `fail` only. `durationMs` and `meta` are additions of this module.
+Each check holds a list with one check object, as the draft prescribes, followed by its measurements as `<check>:<measurement>` with `observedValue` and `observedUnit`. `output` holds the message for `warn` and `fail` only. Checks that talk to a service (database, cache and session storage, search engine, RabbitMQ) add `<check>:responseTime` in ms. `meta` is an addition of this module.
 
 ### Oh Dear
 
@@ -73,7 +77,7 @@ Stores > Configuration > Fruitcake Extensions > Health Check:
 - **Key**: when set, requests need an `Authorization: Bearer <key>` header, or `?key=<key>` for monitors that cannot send headers. **Generate Key** fills in a random key. The key is stored as plain text, so it stays readable in the admin. Keys stored encrypted by 0.x still work and are saved as plain text on the next save. Set it from the CLI with `bin/magento config:set fruitcake_healthcheck/general/key <key>`, or in `env.php`.
 - **Monitor URL**: the full URL with `?key=` for the default store view, with a **Copy URL** button. It follows the endpoint and key fields as you type, so save before using it.
 - **Monitor User Agents**: parts of user agents, one per line, that always get JSON instead of the HTML page for browsers.
-- **Show Check Details**: adds every check with its status, message, meta data and duration to the response. On by default, but only applies when a key is set.
+- **Show Check Details**: adds every check with its status, message, meta data and measurements to the response. On by default, but only applies when a key is set.
 - **Checks**: per check `No`, `Yes`, `Yes, warnings fail` or `Yes, warnings fail in production mode`. A strict check reports its warnings as failures, so the endpoint returns 503, e.g. when cron is behind. Keep checks non-strict when a load balancer uses the endpoint, or an invalid indexer takes every node out of rotation.
 - **Thresholds**: cron age, indexer backlog and free disk space.
 
@@ -155,6 +159,8 @@ class Erp extends AbstractCheck
     </fruitcake_healthcheck>
 </default>
 ```
+
+Report measured values as measurements, not in `meta`: `CheckResult::ok()->withMeasurement('hitRate', 99.5, 'percent')`. They appear as `"<code>:<name>"` with `observedValue` and `observedUnit`, as draft-inadarei-api-health-check prescribes, e.g. `"opcache:hitRate": [{"observedValue": 99.5, "observedUnit": "percent", "status": "pass"}]`, with the status of the check. Use `meta` for the rest, like names and modes. A check that talks to a service can override `measuresResponseTime()` to return `true`, which adds `<code>:responseTime`.
 
 To make it configurable in the admin, add a field to the `fruitcake_healthcheck/checks` group in your own `system.xml`, with `Fruitcake\HealthCheck\Model\Config\Source\CheckMode` as source model.
 

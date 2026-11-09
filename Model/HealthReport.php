@@ -60,10 +60,19 @@ class HealthReport
     }
 
     /**
-     * The "checks" object of draft-inadarei-api-health-check: every check holds a list of check objects.
+     * The "checks" object of draft-inadarei-api-health-check: every check holds a list of check objects,
+     * followed by its measurements as "<code>:<measurement>", e.g. "opcache:hitRate".
      */
     public function toArray(): array
     {
-        return array_map(static fn (CheckResult $result) => [$result->toArray()], $this->results);
+        $checks = [];
+        foreach ($this->results as $code => $result) {
+            $checks[$code] = [$result->toArray()];
+            foreach ($result->measurementsToArray() as $name => $measurement) {
+                $checks[$code . ':' . $name] = [$measurement];
+            }
+        }
+
+        return $checks;
     }
 }

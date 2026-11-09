@@ -26,6 +26,15 @@ abstract class AbstractCheck implements ObserverInterface
 
     abstract protected function check(): CheckResult;
 
+    /**
+     * True for checks that talk to a service (database, cache, search engine, ...): the time check() takes
+     * is then reported as the measurement "<code>:responseTime" in ms.
+     */
+    protected function measuresResponseTime(): bool
+    {
+        return false;
+    }
+
     public function execute(Observer $observer): void
     {
         $report = $observer->getData('report');
@@ -44,6 +53,10 @@ abstract class AbstractCheck implements ObserverInterface
             $result = $result->withStatus(CheckResult::FAILED);
         }
 
-        $report->add($this->getCode(), $result->withDuration((hrtime(true) - $start) / 1e6));
+        if ($this->measuresResponseTime()) {
+            $result = $result->withMeasurement('responseTime', round((hrtime(true) - $start) / 1e6, 1), 'ms');
+        }
+
+        $report->add($this->getCode(), $result);
     }
 }

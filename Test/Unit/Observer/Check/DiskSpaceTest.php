@@ -43,6 +43,9 @@ class DiskSpaceTest extends TestCase
         $report = new HealthReport();
         (new DiskSpace($config, $directoryList))->execute(new Observer(['report' => $report]));
 
-        $this->assertSame($expected, $report->getResults()['disk_space']->status);
+        $result = $report->getResults()['disk_space'];
+        $this->assertSame($expected, $result->status);
+        $this->assertSame('percent', $result->measurements['free']['unit']);
+        $this->assertSame('MiB', $result->measurements['freeSpace']['unit']);
     }
 }
