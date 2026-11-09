@@ -8,19 +8,17 @@ use Fruitcake\HealthCheck\Model\Config;
 use Fruitcake\HealthCheck\Model\HealthCheck;
 use Magento\Framework\App\Action\HttpGetActionInterface;
 use Magento\Framework\App\Request\Http as HttpRequest;
-use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\Result\RawFactory;
 use Magento\Framework\Controller\ResultInterface;
 
 /**
- * Returns JSON when the client sends Accept: application/json, plain text otherwise.
- * HTTP 200 when no check failed, 503 when one did, 403 for a wrong key.
+ * Responds in the format of draft-inadarei-api-health-check (application/health+json).
+ * HTTP 200 for pass and warn, 503 for fail, 403 for a wrong key.
  */
 class Index implements HttpGetActionInterface
 {
     public function __construct(
         private readonly HttpRequest $request,
-        private readonly JsonFactory $jsonFactory,
         private readonly RawFactory $rawFactory,
         private readonly Config $config,
         private readonly HealthCheck $healthCheck
@@ -30,13 +28,15 @@ class Index implements HttpGetActionInterface
     public function execute(): ResultInterface
     {
         if (!$this->config->isValidKey($this->getGivenKey())) {
-            return $this->respond(403, ['status' => 'forbidden']);
+            // No status: the health of the application is unknown, not failed
+            return $this->respond(403, ['error' => 'Forbidden']);
         }
 
         $report = $this->healthCheck->run();
         $data = ['status' => $report->getStatus()];
         if ($this->config->showDetails()) {
-            $data['checks'] = $report->toArray();
+            // An object, also without checks
+            $data['checks'] = $report->toArray() ?: new \stdClass();
         }
 
         return $this->respond($report->isFailed() ? 503 : 200, $data);
@@ -44,15 +44,12 @@ class Index implements HttpGetActionInterface
 
     private function respond(int $code, array $data): ResultInterface
     {
-        if ($this->wantsJson()) {
-            $result = $this->jsonFactory->create()->setData($data);
-        } else {
-            $result = $this->rawFactory->create()
-                ->setHeader('Content-Type', 'text/plain; charset=utf-8', true)
-                ->setContents($this->toText($data));
-        }
-
-        return $result
+        return $this->rawFactory->create()
+            ->setContents(json_encode(
+                $data,
+                JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR
+            ))
+            ->setHeader('Content-Type', 'application/health+json', true)
             ->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0', true)
             ->setHeader('X-Content-Type-Options', 'nosniff', true)
             ->setHttpResponseCode($code);
@@ -69,26 +66,5 @@ class Index implements HttpGetActionInterface
         }
 
         return (string) $this->request->getParam('key', '');
-    }
-
-    private function wantsJson(): bool
-    {
-        $accept = (string) $this->request->getHeader('Accept');
-
-        return str_contains($accept, '/json') || str_contains($accept, '+json');
-    }
-
-    private function toText(array $data): string
-    {
-        $lines = [strtoupper($data['status'])];
-        foreach ($data['checks'] ?? [] as $code => $check) {
-            $line = sprintf('%s: %s', $code, $check['status']);
-            if (!empty($check['message'])) {
-                $line .= ' - ' . $check['message'];
-            }
-            $lines[] = $line;
-        }
-
-        return implode("\n", $lines) . "\n";
     }
 }

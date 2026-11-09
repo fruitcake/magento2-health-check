@@ -41,8 +41,11 @@ class HealthReport
         return $this->getStatus() === CheckResult::FAILED;
     }
 
+    /**
+     * The "checks" object of draft-inadarei-api-health-check: every check holds a list of check objects.
+     */
     public function toArray(): array
     {
-        return array_map(static fn (CheckResult $result) => $result->toArray(), $this->results);
+        return array_map(static fn (CheckResult $result) => [$result->toArray()], $this->results);
     }
 }

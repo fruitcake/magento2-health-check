@@ -11,13 +11,9 @@ use Fruitcake\HealthCheck\Model\HealthReport;
 use Fruitcake\HealthCheck\Test\Unit\ConfigStub;
 use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\App\Response\HttpInterface as HttpResponse;
-use Magento\Framework\Controller\Result\Json;
-use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Controller\Result\Raw;
 use Magento\Framework\Controller\Result\RawFactory;
 use Magento\Framework\Event\ManagerInterface;
-use Magento\Framework\Serialize\Serializer\Json as JsonSerializer;
-use Magento\Framework\Translate\InlineInterface;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -29,23 +25,22 @@ class IndexTest extends TestCase
         'fruitcake_healthcheck/general/key' => 'enc:secret',
     ];
 
-    public function testReturnsOkAsPlainTextWithoutCaching(): void
+    public function testReturnsHealthJsonWithoutCaching(): void
     {
         $response = $this->call(['database' => CheckResult::ok()]);
 
         $this->assertSame(200, $response['code']);
-        $this->assertSame("OK\n", $response['body']);
-        $this->assertSame('text/plain; charset=utf-8', $response['headers']['Content-Type']);
+        $this->assertSame('{"status":"pass"}', $response['body']);
+        $this->assertSame('application/health+json', $response['headers']['Content-Type']);
         $this->assertStringContainsString('no-store', $response['headers']['Cache-Control']);
     }
 
-    public function testReturnsJsonWhenAccepted(): void
+    public function testReturnsJsonWhateverTheAcceptHeader(): void
     {
-        $response = $this->call(['database' => CheckResult::ok()], headers: ['Accept' => 'application/json']);
+        $response = $this->call(['database' => CheckResult::ok()], headers: ['Accept' => 'text/plain']);
 
-        $this->assertSame(200, $response['code']);
-        $this->assertSame('application/json', $response['headers']['Content-Type']);
-        $this->assertSame(['status' => 'ok'], json_decode($response['body'], true));
+        $this->assertSame('application/health+json', $response['headers']['Content-Type']);
+        $this->assertSame(['status' => 'pass'], json_decode($response['body'], true));
     }
 
     public function testWarningKeepsEndpointUp(): void
@@ -53,7 +48,7 @@ class IndexTest extends TestCase
         $response = $this->call(['database' => CheckResult::ok(), 'cron' => CheckResult::warning('late')]);
 
         $this->assertSame(200, $response['code']);
-        $this->assertSame("WARNING\n", $response['body']);
+        $this->assertSame(['status' => 'warn'], json_decode($response['body'], true));
     }
 
     public function testAnyFailedCheckReturns503(): void
@@ -65,7 +60,7 @@ class IndexTest extends TestCase
         ]);
 
         $this->assertSame(503, $response['code']);
-        $this->assertSame("FAILED\n", $response['body']);
+        $this->assertSame(['status' => 'fail'], json_decode($response['body'], true));
     }
 
     public function testObserverThatThrowsReturns503(): void
@@ -113,11 +108,10 @@ class IndexTest extends TestCase
         $response = $this->call(
             ['database' => CheckResult::failed('SQLSTATE[HY000] [2002] Connection refused')],
             self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'],
-            headers: ['Accept' => 'application/json'],
             expectChecks: false
         );
 
-        $this->assertSame(['status' => 'forbidden'], json_decode($response['body'], true));
+        $this->assertSame(['error' => 'Forbidden'], json_decode($response['body'], true));
     }
 
     public function testAcceptsBearerToken(): void
@@ -143,28 +137,37 @@ class IndexTest extends TestCase
         $response = $this->call(
             ['cron' => CheckResult::warning('late')],
             ['fruitcake_healthcheck/general/show_details' => '1'],
-            headers: ['Accept' => 'application/json']
         );
 
-        $this->assertSame(['status' => 'warning'], json_decode($response['body'], true));
+        $this->assertSame(['status' => 'warn'], json_decode($response['body'], true));
     }
 
     public function testShowsDetailsWithKey(): void
     {
         $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
-        $checks = ['database' => CheckResult::ok(), 'cron' => CheckResult::warning('late', ['minutes_ago' => 20])];
+        $checks = [
+            'database' => CheckResult::ok('connected')->withDuration(1.23),
+            'cron' => CheckResult::warning('late', ['minutes_ago' => 20]),
+        ];
 
-        $json = $this->call($checks, $config, ['Accept' => 'application/json', 'Authorization' => 'Bearer secret']);
-        $text = $this->call($checks, $config, ['Authorization' => 'Bearer secret']);
+        $response = $this->call($checks, $config, ['Authorization' => 'Bearer secret']);
 
         $this->assertSame([
-            'status' => 'warning',
+            'status' => 'warn',
             'checks' => [
-                'database' => ['status' => 'ok'],
-                'cron' => ['status' => 'warning', 'message' => 'late', 'meta' => ['minutes_ago' => 20]],
+                'database' => [['status' => 'pass', 'durationMs' => 1.2]],
+                'cron' => [['status' => 'warn', 'output' => 'late', 'meta' => ['minutes_ago' => 20]]],
             ],
-        ], json_decode($json['body'], true));
-        $this->assertSame("WARNING\ndatabase: ok\ncron: warning - late\n", $text['body']);
+        ], json_decode($response['body'], true));
+    }
+
+    public function testChecksIsAnObjectWhenNoCheckRan(): void
+    {
+        $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
+
+        $response = $this->call([], $config, ['Authorization' => 'Bearer secret']);
+
+        $this->assertSame('{"status":"pass","checks":{}}', $response['body']);
     }
 
     /**
@@ -204,16 +207,11 @@ class IndexTest extends TestCase
             static fn (string $name, $default = null) => $params[$name] ?? $default
         );
 
-        $jsonFactory = $this->createMock(JsonFactory::class);
-        $jsonFactory->method('create')->willReturnCallback(
-            fn () => new Json($this->createMock(InlineInterface::class), new JsonSerializer())
-        );
         $rawFactory = $this->createMock(RawFactory::class);
         $rawFactory->method('create')->willReturnCallback(static fn () => new Raw());
 
         return new Index(
             $request,
-            $jsonFactory,
             $rawFactory,
             $this->createConfig($config + ['fruitcake_healthcheck/general/enabled' => '1']),
             new HealthCheck($eventManager, $this->createMock(LoggerInterface::class))

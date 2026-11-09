@@ -6,9 +6,10 @@ namespace Fruitcake\HealthCheck\Model;
 
 class CheckResult
 {
-    public const OK = 'ok';
-    public const WARNING = 'warning';
-    public const FAILED = 'failed';
+    // Status values of draft-inadarei-api-health-check
+    public const OK = 'pass';
+    public const WARNING = 'warn';
+    public const FAILED = 'fail';
 
     private function __construct(
         public readonly string $status,
@@ -43,13 +44,17 @@ class CheckResult
         return new self($this->status, $this->message, $this->meta, $durationMs);
     }
 
+    /**
+     * A check object of draft-inadarei-api-health-check. The draft only wants "output" for warn and fail;
+     * "meta" and "durationMs" are additions of this module.
+     */
     public function toArray(): array
     {
         return array_filter([
             'status' => $this->status,
-            'message' => $this->message,
+            'output' => $this->status !== self::OK ? $this->message : '',
+            'durationMs' => $this->durationMs !== null ? round($this->durationMs, 1) : null,
             'meta' => $this->meta,
-            'duration_ms' => $this->durationMs !== null ? round($this->durationMs, 1) : null,
         ], static fn ($value) => $value !== '' && $value !== [] && $value !== null);
     }
 }

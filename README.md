@@ -14,30 +14,33 @@ php bin/magento setup:upgrade
 
 ```
 curl https://example.com/up
-OK
-
-curl -H 'Accept: application/json' https://example.com/up
-{"status":"ok"}
+{"status":"pass"}
 ```
 
 | Status | HTTP |
 |---|---|
-| `ok` | 200 |
-| `warning` | 200 |
-| `failed` | 503 |
-| wrong key | 403 |
+| `pass` | 200 |
+| `warn` | 200 |
+| `fail` | 503 |
+| wrong key | 403, `{"error":"Forbidden"}` |
 
-The response is plain text by default and JSON when the request sends `Accept: application/json`. It is never cached.
+The response is JSON in the format of [draft-inadarei-api-health-check](https://datatracker.ietf.org/doc/html/draft-inadarei-api-health-check-06), sent as `application/health+json`. It is never cached.
 
 With a key set, the response lists every check:
 
 ```
 curl -H 'Authorization: Bearer <key>' https://example.com/up
-WARNING
-database: ok
-cron: warning - Last cron job finished 42 minutes ago
-disk_space: ok - 61.3% disk space free
+{
+  "status": "warn",
+  "checks": {
+    "database": [{"status": "pass", "durationMs": 1.2}],
+    "cron": [{"status": "warn", "output": "Last cron job finished 42 minutes ago", "durationMs": 0.8, "meta": {"last_finished_at": "2026-11-09T10:18:00+00:00", "minutes_ago": 42}}],
+    "disk_space": [{"status": "pass", "durationMs": 0.1, "meta": {"free_percent": 61.3, "free_mb": 48213}}]
+  }
+}
 ```
+
+Each check holds a list with one check object, as the draft prescribes. `output` holds the message for `warn` and `fail` only. `durationMs` and `meta` are additions of this module.
 
 ## Defaults
 
@@ -73,8 +76,8 @@ A check that throws an exception counts as failed. Failed checks are logged.
 
 ## Security
 
-- Without a key, the response is only `OK`, `WARNING` or `FAILED` and the HTTP status. Check names, messages, exception texts and versions are never shown.
-- With a key set, a request without the right key gets `403` and `forbidden`, and no check runs.
+- Without a key, the response is only the overall status (`pass`, `warn` or `fail`) and the HTTP status. Check names, messages, exception texts and versions are never shown.
+- With a key set, a request without the right key gets `403` and `Forbidden`, and no check runs.
 - Details (including exception messages, which can name hosts or database users) are only shown to requests with the key.
 - The key is compared in constant time. A key that cannot be decrypted, e.g. plain text written into `env.php`, is used as is, so the endpoint never falls back to public.
 - `?key=` ends up in access logs. Prefer the `Authorization` header where the monitor supports it. On staging behind HTTP basic auth, the header is taken, so use `?key=` there.
