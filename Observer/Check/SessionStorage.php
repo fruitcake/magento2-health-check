@@ -36,8 +36,9 @@ class SessionStorage extends AbstractCheck
 
     protected function check(): CheckResult
     {
-        $handler = (string) ($this->deploymentConfig->get('session/save') ?: SaveHandlerInterface::DEFAULT_HANDLER);
-        $meta = ['handler' => $handler];
+        $configured = (string) ($this->deploymentConfig->get('session/save') ?: SaveHandlerInterface::DEFAULT_HANDLER);
+        $handler = $this->getEffectiveHandler($configured);
+        $meta = ['handler' => $handler] + ($handler !== $configured ? ['configured' => $configured] : []);
 
         $works = match ($handler) {
             'files' => $this->testFiles(),
@@ -49,9 +50,34 @@ class SessionStorage extends AbstractCheck
             return CheckResult::warning(sprintf('No storage test available for session handler "%s"', $handler), $meta);
         }
 
-        return $works
-            ? CheckResult::ok('', $meta)
-            : CheckResult::failed(sprintf('Session storage "%s" cannot write and read back a session', $handler), $meta);
+        if (!$works) {
+            return CheckResult::failed(sprintf('Session storage "%s" cannot write and read back a session', $handler), $meta);
+        }
+
+        // The db handler only deletes old sessions in gc(), which PHP never calls with a probability of 0
+        // (the Debian/Ubuntu default: their cron job only cleans session files)
+        if ($handler === 'db' && (int) ini_get('session.gc_probability') <= 0) {
+            return CheckResult::warning(
+                'Session garbage collection is off (session.gc_probability = 0), so the session table is never cleaned',
+                $meta + ['gc_probability' => 0]
+            );
+        }
+
+        return CheckResult::ok('', $meta);
+    }
+
+    /**
+     * Magento has its own handlers for "db" and "redis" only (SaveHandlerFactory in app/etc/di.xml). Anything else,
+     * e.g. "database", uses PHP's own handler, and only "memcached" is passed on to php.ini: the rest keeps
+     * PHP's session.save_handler, usually files.
+     */
+    private function getEffectiveHandler(string $configured): string
+    {
+        if (in_array($configured, ['db', 'redis', 'memcached'], true)) {
+            return $configured;
+        }
+
+        return (string) (ini_get('session.save_handler') ?: SaveHandlerInterface::DEFAULT_HANDLER);
     }
 
     private function testHandler(string $handler): bool

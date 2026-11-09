@@ -26,6 +26,22 @@ class SessionStorageTest extends TestCase
         $this->assertSame(['handler' => 'redis'], $result->meta);
     }
 
+    public function testDatabaseWithoutGarbageCollectionWarns(): void
+    {
+        $previous = ini_set('session.gc_probability', '0');
+        try {
+            $off = $this->check(['session/save' => 'db'], $this->storage());
+            ini_set('session.gc_probability', '1');
+            $on = $this->check(['session/save' => 'db'], $this->storage());
+        } finally {
+            ini_set('session.gc_probability', (string) $previous);
+        }
+
+        $this->assertSame(CheckResult::WARNING, $off->status);
+        $this->assertSame(0, $off->meta['gc_probability']);
+        $this->assertSame(CheckResult::OK, $on->status);
+    }
+
     public function testRedisThatDoesNotStoreFails(): void
     {
         $result = $this->check(['session/save' => 'redis'], $this->storage(works: false));
@@ -80,6 +96,18 @@ class SessionStorageTest extends TestCase
         $result = $this->check(['session/save' => 'files'], savePath: '/does/not/exist');
 
         $this->assertSame(CheckResult::FAILED, $result->status);
+    }
+
+    public function testHandlerMagentoDoesNotKnowUsesPhpFiles(): void
+    {
+        $dir = sys_get_temp_dir() . '/healthcheck_' . bin2hex(random_bytes(4));
+        mkdir($dir);
+
+        $result = $this->check(['session/save' => 'database'], savePath: $dir);
+        rmdir($dir);
+
+        $this->assertSame(CheckResult::OK, $result->status);
+        $this->assertSame(['handler' => 'files', 'configured' => 'database'], $result->meta);
     }
 
     public function testUnknownHandlerWarns(): void
