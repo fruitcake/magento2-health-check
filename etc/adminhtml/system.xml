@@ -96,6 +96,11 @@
                     <label>Disk Space</label>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>
+                <field id="two_factor_auth" translate="label comment" type="select" sortOrder="110" showInDefault="1">
+                    <label>Two-Factor Authentication</label>
+                    <comment>Warns when admin 2FA is off: Magento_TwoFactorAuth disabled, or twofactorauth/general/enable set to 0.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
             </group>
             <group id="thresholds" translate="label" type="text" sortOrder="30" showInDefault="1">
                 <label>Thresholds</label>
