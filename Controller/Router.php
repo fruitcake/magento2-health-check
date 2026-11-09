@@ -13,7 +13,7 @@ use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\RouterInterface;
 
 /**
- * Matches the configured endpoint (default /up). The controller has no routes.xml front name,
+ * Matches the configured endpoint (default /health). The controller has no routes.xml front name,
  * so it is only reachable on that path.
  */
 class Router implements RouterInterface

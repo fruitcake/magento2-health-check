@@ -1,6 +1,6 @@
 # Magento 2 Health Check
 
-A health check endpoint for Magento 2, similar to Laravel's `/up` route. Other modules can add their own checks through an event.
+A health check endpoint for Magento 2 at `/health`, similar to Laravel's `/up` route. Other modules can add their own checks through an event.
 
 ## Install
 
@@ -13,7 +13,7 @@ php bin/magento setup:upgrade
 ## Usage
 
 ```
-curl https://example.com/up
+curl https://example.com/health
 {"status":"pass"}
 ```
 
@@ -29,7 +29,7 @@ The response is JSON in the format of [draft-inadarei-api-health-check](https://
 With a key set, the response lists every check:
 
 ```
-curl -H 'Authorization: Bearer <key>' https://example.com/up
+curl -H 'Authorization: Bearer <key>' https://example.com/health
 {
   "status": "warn",
   "output": "cron: Last cron job finished 42 minutes ago",
@@ -59,13 +59,13 @@ The endpoint also speaks the format of [Oh Dear's Application Health monitoring]
 
 ## Defaults
 
-The module works right after install: `/up` is public, returns only the overall status and runs every check below. No check is strict, so warnings never turn the endpoint red.
+The module works right after install: `/health` is public, returns only the overall status and runs every check below. No check is strict, so warnings never turn the endpoint red.
 
 ## Configuration
 
 Stores > Configuration > Fruitcake Extensions > Health Check:
 
-- **Endpoint**: the path, `up` by default.
+- **Endpoint**: the path, `health` by default. Before 1.0 the default was `up`: shops that relied on it can keep it with `bin/magento config:set fruitcake_healthcheck/general/endpoint up`.
 - **Key**: when set, requests need an `Authorization: Bearer <key>` header, or `?key=<key>` for monitors that cannot send headers. **Generate Key** fills in a random key. The key is stored as plain text, so it stays readable in the admin. Keys stored encrypted by 0.x still work and are saved as plain text on the next save. Set it from the CLI with `bin/magento config:set fruitcake_healthcheck/general/key <key>`, or in `env.php`.
 - **Monitor URL**: the full URL with `?key=` for the default store view, with a **Copy URL** button. It follows the endpoint and key fields as you type, so save before using it.
 - **Show Check Details**: adds every check with its status, message, meta data and duration to the response. On by default, but only applies when a key is set.
