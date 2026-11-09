@@ -30,10 +30,12 @@ trait ConfigStub
             static fn (string $path) => (bool) ($values[$path] ?? false)
         );
 
-        // Stored keys are "encrypted" as enc:<key>
+        // Keys from before 1.0 are "encrypted" as 0:3:<key>. Like the real Encryptor, anything else is not decryptable.
         $encryptor = $this->createMock(EncryptorInterface::class);
         $encryptor->method('decrypt')->willReturnCallback(
-            static fn (string $value) => str_starts_with($value, 'enc:') ? substr($value, 4) : ''
+            static fn (string $value) => str_starts_with($value, '0:3:')
+                ? substr($value, 4)
+                : throw new \Error('Undefined constant MCRYPT_BLOWFISH')
         );
 
         $appState = $this->createMock(State::class);

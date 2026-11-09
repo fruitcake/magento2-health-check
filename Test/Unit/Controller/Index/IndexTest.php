@@ -22,7 +22,7 @@ class IndexTest extends TestCase
     use ConfigStub;
 
     private const KEY_CONFIG = [
-        'fruitcake_healthcheck/general/key' => 'enc:secret',
+        'fruitcake_healthcheck/general/key' => 'secret',
     ];
 
     public function testReturnsHealthJsonWithoutCaching(): void
@@ -92,12 +92,23 @@ class IndexTest extends TestCase
         $this->assertSame(403, $response['code']);
     }
 
-    public function testPlainTextKeyThatDoesNotDecryptStillProtectsEndpoint(): void
+    public function testEncryptedKeyFromBefore10StillWorks(): void
     {
-        $config = ['fruitcake_healthcheck/general/key' => 'plain-secret'];
+        $config = ['fruitcake_healthcheck/general/key' => '0:3:secret'];
 
         $withoutKey = $this->call(['database' => CheckResult::ok()], $config, expectChecks: false);
-        $withKey = $this->call(['database' => CheckResult::ok()], $config, ['Authorization' => 'Bearer plain-secret']);
+        $withKey = $this->call(['database' => CheckResult::ok()], $config, ['Authorization' => 'Bearer secret']);
+
+        $this->assertSame(403, $withoutKey['code']);
+        $this->assertSame(200, $withKey['code']);
+    }
+
+    public function testKeyThatLooksEncryptedButDoesNotDecryptIsUsedAsIs(): void
+    {
+        $config = ['fruitcake_healthcheck/general/key' => '1:2:not-really'];
+
+        $withoutKey = $this->call(['database' => CheckResult::ok()], $config, expectChecks: false);
+        $withKey = $this->call(['database' => CheckResult::ok()], $config, ['Authorization' => 'Bearer 1:2:not-really']);
 
         $this->assertSame(403, $withoutKey['code']);
         $this->assertSame(200, $withKey['code']);
