@@ -25,6 +25,11 @@ class Rabbitmq extends AbstractCheck
         parent::__construct($config);
     }
 
+    protected function measuresResponseTime(): bool
+    {
+        return true;
+    }
+
     public function getCode(): string
     {
         return 'rabbitmq';

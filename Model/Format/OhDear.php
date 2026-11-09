@@ -87,9 +87,6 @@ class OhDear implements FormatInterface
                 : trim($measurement['value'] . ' ' . $measurement['unit']);
         }
         $meta += $result->meta;
-        if ($result->durationMs !== null) {
-            $meta['duration_ms'] = round($result->durationMs, 1);
-        }
 
         return [
             'name' => $code,

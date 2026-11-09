@@ -186,7 +186,7 @@ class IndexTest extends TestCase
     {
         $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
         $checks = [
-            'database' => CheckResult::ok('connected')->withDuration(1.23),
+            'database' => CheckResult::ok('connected')->withMeasurement('responseTime', 1.2, 'ms'),
             'cron' => CheckResult::warning('late', ['minutes_ago' => 20]),
         ];
 
@@ -198,7 +198,8 @@ class IndexTest extends TestCase
             'serviceId' => 'web1',
             'releaseId' => '1731151234',
             'checks' => [
-                'database' => [['status' => 'pass', 'durationMs' => 1.2]],
+                'database' => [['status' => 'pass']],
+                'database:responseTime' => [['observedValue' => 1.2, 'observedUnit' => 'ms', 'status' => 'pass']],
                 'cron' => [['status' => 'warn', 'output' => 'late', 'meta' => ['minutes_ago' => 20]]],
             ],
         ], json_decode($response['body'], true));
@@ -231,7 +232,7 @@ class IndexTest extends TestCase
     {
         $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
         $checks = [
-            'database' => CheckResult::ok()->withDuration(1.23),
+            'database' => CheckResult::ok()->withMeasurement('responseTime', 1.2, 'ms'),
             'cache_types' => CheckResult::warning('Disabled cache types: full_page', ['disabled' => ['full_page']]),
             'search_engine' => CheckResult::failed('not reachable', ['engine' => 'opensearch']),
         ];
@@ -250,7 +251,7 @@ class IndexTest extends TestCase
                 'status' => 'ok',
                 'notificationMessage' => '',
                 'shortSummary' => 'OK',
-                'meta' => ['duration_ms' => 1.2],
+                'meta' => ['responseTime' => '1.2 ms'],
             ],
             [
                 'name' => 'cache_types',

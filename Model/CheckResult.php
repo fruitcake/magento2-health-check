@@ -18,7 +18,6 @@ class CheckResult
         public readonly string $status,
         public readonly string $message = '',
         public readonly array $meta = [],
-        public readonly ?float $durationMs = null,
         public readonly array $measurements = []
     ) {
     }
@@ -40,12 +39,7 @@ class CheckResult
 
     public function withStatus(string $status): self
     {
-        return new self($status, $this->message, $this->meta, $this->durationMs, $this->measurements);
-    }
-
-    public function withDuration(float $durationMs): self
-    {
-        return new self($this->status, $this->message, $this->meta, $durationMs, $this->measurements);
+        return new self($status, $this->message, $this->meta, $this->measurements);
     }
 
     /**
@@ -60,19 +54,18 @@ class CheckResult
         $measurements = $this->measurements;
         $measurements[$name] = ['value' => $value, 'unit' => $unit];
 
-        return new self($this->status, $this->message, $this->meta, $this->durationMs, $measurements);
+        return new self($this->status, $this->message, $this->meta, $measurements);
     }
 
     /**
      * A check object of draft-inadarei-api-health-check. The draft only wants "output" for warn and fail;
-     * "meta" and "durationMs" are additions of this module.
+     * "meta" is an addition of this module.
      */
     public function toArray(): array
     {
         return array_filter([
             'status' => $this->status,
             'output' => $this->status !== self::OK ? $this->message : '',
-            'durationMs' => $this->durationMs !== null ? round($this->durationMs, 1) : null,
             'meta' => $this->meta,
         ], static fn ($value) => $value !== '' && $value !== [] && $value !== null);
     }

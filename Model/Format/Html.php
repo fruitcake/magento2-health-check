@@ -72,7 +72,7 @@ class Html implements FormatInterface
             foreach ((array) $results as $result) {
                 $checkStatus = (string) ($result['status'] ?? '');
                 $counts[$checkStatus] = ($counts[$checkStatus] ?? 0) + 1;
-                $totalMs += (float) ($result['durationMs'] ?? 0);
+                $totalMs += (float) ($measurements[$code]['responseTime']['observedValue'] ?? 0);
                 $rows .= $this->renderRow((string) $code, $result, $measurements[$code] ?? []);
                 if ($checkStatus === $status && $status !== 'pass') {
                     $problems[] = [(string) $code, (string) ($result['output'] ?? '')];
@@ -102,11 +102,11 @@ class Html implements FormatInterface
                 . $this->renderStat('fail', (string) $counts['fail'], 'Fail')
                 . $this->renderStat('warn', (string) $counts['warn'], 'Warn')
                 . $this->renderStat('pass', (string) $counts['pass'], 'Pass')
-                . $this->renderStat('time', $this->formatDuration($totalMs), 'Total duration')
+                . $this->renderStat('time', $this->formatDuration($totalMs), 'Total response time')
                 . '</section>'
                 . '<section class="card scroll"><table>'
                 . '<colgroup><col class="c-check"><col class="c-status"><col><col class="c-time"></colgroup>'
-                . '<thead><tr><th>Check</th><th>Status</th><th>Details</th><th class="num">Duration</th></tr></thead>'
+                . '<thead><tr><th>Check</th><th>Status</th><th>Details</th><th class="num">Response time</th></tr></thead>'
                 . '<tbody>' . $rows . '</tbody></table></section>';
         } else {
             $body .= '<p class="muted">Checks are only listed with the key, when Show Check Details is on.</p>';
@@ -160,6 +160,9 @@ class Html implements FormatInterface
     {
         $status = (string) ($result['status'] ?? '');
         $output = (string) ($result['output'] ?? '');
+        // The response time has a column of its own
+        $responseTime = $measurements['responseTime']['observedValue'] ?? null;
+        unset($measurements['responseTime']);
         $chips = $this->renderMeasurements($measurements) . $this->renderMeta((array) ($result['meta'] ?? []));
 
         return '<tr class="' . $this->escape($status) . '" data-check="' . $this->escape($code) . '">'
@@ -168,8 +171,8 @@ class Html implements FormatInterface
             . $this->escape($status) . '</span></td>'
             . '<td>' . ($output !== '' ? '<p>' . $this->escape($output) . '</p>' : '')
             . ($chips !== '' ? '<div class="chips">' . $chips . '</div>' : '') . '</td>'
-            . '<td class="num mono">' . (isset($result['durationMs'])
-                ? $this->escape($this->formatDuration((float) $result['durationMs'])) : '') . '</td>'
+            . '<td class="num mono">' . ($responseTime !== null
+                ? $this->escape($this->formatDuration((float) $responseTime)) : '') . '</td>'
             . '</tr>';
     }
 
@@ -326,7 +329,7 @@ class Html implements FormatInterface
         . '.stat.pass{border-top-color:var(--pass)}.stat.pass .stat-value{color:var(--pass-text)}'
         . '.card{background:var(--card);border-radius:5px}.scroll{overflow-x:auto}'
         . 'table{width:100%;min-width:680px;border-collapse:collapse;table-layout:fixed;font-size:14px}'
-        . '.c-check{width:190px}.c-status{width:110px}.c-time{width:96px}'
+        . '.c-check{width:190px}.c-status{width:110px}.c-time{width:120px}'
         . 'th{text-align:left;font-size:13px;font-weight:600;color:var(--muted);padding:12px 16px;border-bottom:1px solid var(--line);white-space:nowrap}'
         . 'td{padding:14px 16px;border-bottom:1px solid var(--row);vertical-align:top}tbody tr:last-child td{border-bottom:0}'
         . 'td.mono.strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.num{text-align:right}'
