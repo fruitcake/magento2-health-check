@@ -42,6 +42,24 @@ class HealthReport
     }
 
     /**
+     * The "output" of draft-inadarei-api-health-check: every check that did not pass, failures first,
+     * e.g. "search_engine: Search engine is not reachable; cron: Last cron job finished 42 minutes ago".
+     */
+    public function getOutput(): string
+    {
+        $lines = [];
+        foreach ([CheckResult::FAILED, CheckResult::WARNING] as $status) {
+            foreach ($this->results as $code => $result) {
+                if ($result->status === $status) {
+                    $lines[] = $result->message !== '' ? $code . ': ' . $result->message : $code;
+                }
+            }
+        }
+
+        return implode('; ', $lines);
+    }
+
+    /**
      * The "checks" object of draft-inadarei-api-health-check: every check holds a list of check objects.
      */
     public function toArray(): array

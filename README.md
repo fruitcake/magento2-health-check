@@ -40,6 +40,12 @@ curl -H 'Authorization: Bearer <key>' https://example.com/up
 }
 ```
 
+With details, a `warn` or `fail` response also gets a top-level `output` with every check that did not pass, failures first, so a monitor shows the reason without digging through `checks`:
+
+```json
+{"status": "fail", "output": "search_engine: Search engine \"elasticsearch8\" is not reachable; cron: Last cron job finished 42 minutes ago", "checks": {...}}
+```
+
 Each check holds a list with one check object, as the draft prescribes. `output` holds the message for `warn` and `fail` only. `durationMs` and `meta` are additions of this module.
 
 ## Defaults
