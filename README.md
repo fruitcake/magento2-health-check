@@ -1,6 +1,6 @@
 # Magento 2 Health Check
 
-A health check endpoint for Magento 2, similar to Laravel's `/up` route. Other modules can add their own checks through an event.
+A health check endpoint for Magento 2 at `/health`, similar to Laravel's `/up` route. Other modules can add their own checks through an event.
 
 ## Install
 
@@ -13,7 +13,7 @@ php bin/magento setup:upgrade
 ## Usage
 
 ```
-curl https://example.com/up
+curl https://example.com/health
 {"status":"pass"}
 ```
 
@@ -29,7 +29,7 @@ The response is JSON in the format of [draft-inadarei-api-health-check](https://
 With a key set, the response lists every check:
 
 ```
-curl -H 'Authorization: Bearer <key>' https://example.com/up
+curl -H 'Authorization: Bearer <key>' https://example.com/health
 {
   "status": "warn",
   "output": "cron: Last cron job finished 42 minutes ago",
@@ -53,19 +53,23 @@ With details, a `warn` or `fail` response also gets a top-level `output` with ev
 
 Each check holds a list with one check object, as the draft prescribes. `output` holds the message for `warn` and `fail` only. `durationMs` and `meta` are additions of this module.
 
+### Oh Dear
+
+The endpoint also speaks the format of [Oh Dear's Application Health monitoring](https://ohdear.app/docs/features/application-health-monitoring). In Oh Dear, set the health check URL to the endpoint and the secret to the key. Oh Dear sends the key in the `oh-dear-health-check-secret` header, which gets that format; `?format=ohdear` does the same for testing. The response is always HTTP 200, as the status of each check is in the body, and `403` for a wrong secret. Every check becomes a check result; nested `meta` values are joined into one string, as Oh Dear shows meta as keys and values. Without details, the only result is `health` with the overall status.
+
 ### In a browser
 
 Opened in a browser, the endpoint shows an HTML page: the status, a table of the checks, and the JSON. Browsers are recognised by the `Sec-Fetch-Dest: document` header, which monitors do not send, even the ones that pretend to be a browser, like StatusCake. Monitors that use a real browser get JSON by their user agent: StatusCake, UptimeRobot, Pingdom, Oh Dear, Checkly, Better Stack and others are built in, and **Monitor User Agents** in the configuration adds more. `?format=json` or `?format=html` overrides the detection. The HTTP status is the same, and the page holds the JSON too, so a keyword check on e.g. `"pass"` still matches.
 
 ## Defaults
 
-The module works right after install: `/up` is public, returns only the overall status and runs every check below. No check is strict, so warnings never turn the endpoint red.
+The module works right after install: `/health` is public, returns only the overall status and runs every check below. No check is strict, so warnings never turn the endpoint red.
 
 ## Configuration
 
 Stores > Configuration > Fruitcake Extensions > Health Check:
 
-- **Endpoint**: the path, `up` by default.
+- **Endpoint**: the path, `health` by default. Before 1.0 the default was `up`: shops that relied on it can keep it with `bin/magento config:set fruitcake_healthcheck/general/endpoint up`.
 - **Key**: when set, requests need an `Authorization: Bearer <key>` header, or `?key=<key>` for monitors that cannot send headers. **Generate Key** fills in a random key. The key is stored as plain text, so it stays readable in the admin. Keys stored encrypted by 0.x still work and are saved as plain text on the next save. Set it from the CLI with `bin/magento config:set fruitcake_healthcheck/general/key <key>`, or in `env.php`.
 - **Monitor URL**: the full URL with `?key=` for the default store view, with a **Copy URL** button. It follows the endpoint and key fields as you type, so save before using it.
 - **Monitor User Agents**: parts of user agents, one per line, that always get JSON instead of the HTML page for browsers.
@@ -84,6 +88,7 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 | `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached), or database sessions without garbage collection (`session.gc_probability = 0`), so the `session` table keeps growing |
 | `cache_types` | | a cache type is disabled or invalidated |
 | `search_engine` | OpenSearch/Elasticsearch (Magento's own, Amasty Elastic Search or Smile ElasticSuite) does not answer a ping | no connection test exists for the configured engine |
+| `rabbitmq` | no connection to RabbitMQ with `queue/amqp` from `env.php` (passes without connecting when it is not configured) | |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
 | `cron` | | no cron job finished within the threshold (15 minutes). The module adds an index on `cron_schedule` (`status`, `finished_at`) so this stays fast on a large table |
 | `deploy_mode` | | not in production mode |
@@ -114,21 +119,21 @@ Extend `AbstractCheck` and listen to `fruitcake_healthcheck_diagnose`:
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Observer\AbstractCheck;
 
-class Rabbitmq extends AbstractCheck
+class Erp extends AbstractCheck
 {
     // Add a constructor with your own dependencies; pass Config on to parent::__construct()
 
 
     public function getCode(): string
     {
-        return 'rabbitmq';
+        return 'erp';
     }
 
     protected function check(): CheckResult
     {
         return $this->isConnected()
             ? CheckResult::ok()
-            : CheckResult::failed('RabbitMQ is not reachable');
+            : CheckResult::failed('ERP is not reachable');
     }
 }
 ```
@@ -136,7 +141,7 @@ class Rabbitmq extends AbstractCheck
 ```xml
 <!-- etc/events.xml -->
 <event name="fruitcake_healthcheck_diagnose">
-    <observer name="vendor_module_rabbitmq" instance="Vendor\Module\Observer\Rabbitmq"/>
+    <observer name="vendor_module_erp" instance="Vendor\Module\Observer\Erp"/>
 </event>
 ```
 
@@ -145,7 +150,7 @@ class Rabbitmq extends AbstractCheck
 <default>
     <fruitcake_healthcheck>
         <checks>
-            <rabbitmq>1</rabbitmq>
+            <erp>1</erp>
         </checks>
     </fruitcake_healthcheck>
 </default>

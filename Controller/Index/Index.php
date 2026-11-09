@@ -7,6 +7,7 @@ namespace Fruitcake\HealthCheck\Controller\Index;
 use Fruitcake\HealthCheck\Model\BrowserDetector;
 use Fruitcake\HealthCheck\Model\Config;
 use Fruitcake\HealthCheck\Model\Format\Html;
+use Fruitcake\HealthCheck\Model\Format\OhDear;
 use Fruitcake\HealthCheck\Model\HealthCheck;
 use Fruitcake\HealthCheck\Model\ServiceInfo;
 use Magento\Framework\App\Action\HttpGetActionInterface;
@@ -15,17 +16,24 @@ use Magento\Framework\Controller\Result\RawFactory;
 use Magento\Framework\Controller\ResultInterface;
 
 /**
- * Responds in the format of draft-inadarei-api-health-check (application/health+json).
+ * Responds in the format of draft-inadarei-api-health-check (application/health+json):
  * HTTP 200 for pass and warn, 503 for fail, 403 for a wrong key.
+ *
+ * Requests from Oh Dear (the oh-dear-health-check-secret header) or with ?format=ohdear get the format of
+ * Oh Dear's Application Health monitoring instead, always with HTTP 200: the status is in the body.
+ * A browser gets an HTML page with the same status code (see BrowserDetector).
  */
 class Index implements HttpGetActionInterface
 {
+    private const OH_DEAR_HEADER = 'oh-dear-health-check-secret';
+
     public function __construct(
         private readonly HttpRequest $request,
         private readonly RawFactory $rawFactory,
         private readonly Config $config,
         private readonly HealthCheck $healthCheck,
         private readonly ServiceInfo $serviceInfo,
+        private readonly OhDear $ohDearFormat,
         private readonly BrowserDetector $browserDetector,
         private readonly Html $htmlFormat
     ) {
@@ -39,6 +47,10 @@ class Index implements HttpGetActionInterface
         }
 
         $report = $this->healthCheck->run();
+        if ($this->wantsOhDear()) {
+            return $this->respond(200, $this->ohDearFormat->toArray($report, $this->config->showDetails()), 'application/json');
+        }
+
         $data = ['status' => $report->getStatus()];
         if ($this->config->showDetails()) {
             $output = $report->getOutput();
@@ -54,15 +66,22 @@ class Index implements HttpGetActionInterface
             $data['checks'] = $report->toArray() ?: new \stdClass();
         }
 
-        return $this->respond($report->isFailed() ? 503 : 200, $data);
+        return $this->respond($report->isFailed() ? 503 : 200, $data, html: $this->wantsHtml());
     }
 
-    private function respond(int $code, array $data): ResultInterface
-    {
+    /**
+     * @param bool $html the page for browsers; Oh Dear and a 403 always get JSON
+     */
+    private function respond(
+        int $code,
+        array $data,
+        string $contentType = 'application/health+json',
+        bool $html = false
+    ): ResultInterface {
         $flags = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR;
         $result = $this->rawFactory->create();
 
-        if ($this->wantsHtml()) {
+        if ($html) {
             $result->setContents($this->htmlFormat->render($data, json_encode($data, $flags | JSON_PRETTY_PRINT)))
                 ->setHeader('Content-Type', 'text/html; charset=utf-8', true)
                 // Inline styles only: no scripts, no requests elsewhere, not in a frame
@@ -73,7 +92,7 @@ class Index implements HttpGetActionInterface
                 );
         } else {
             $result->setContents(json_encode($data, $flags))
-                ->setHeader('Content-Type', 'application/health+json', true);
+                ->setHeader('Content-Type', $contentType, true);
         }
 
         return $result
@@ -82,6 +101,12 @@ class Index implements HttpGetActionInterface
             // The page differs per client, so a cache in between must not mix them up
             ->setHeader('Vary', 'Sec-Fetch-Dest, User-Agent', true)
             ->setHttpResponseCode($code);
+    }
+
+    private function wantsOhDear(): bool
+    {
+        return $this->request->getHeader(self::OH_DEAR_HEADER) !== false
+            || $this->request->getParam('format') === 'ohdear';
     }
 
     /**
@@ -98,10 +123,16 @@ class Index implements HttpGetActionInterface
     }
 
     /**
-     * Authorization: Bearer <key>, or ?key=<key> for monitors that cannot send headers.
+     * Authorization: Bearer <key>, the oh-dear-health-check-secret header Oh Dear sends,
+     * or ?key=<key> for monitors that cannot send headers.
      */
     private function getGivenKey(): string
     {
+        $ohDearSecret = $this->request->getHeader(self::OH_DEAR_HEADER);
+        if (is_string($ohDearSecret) && $ohDearSecret !== '') {
+            return trim($ohDearSecret);
+        }
+
         $authorization = (string) $this->request->getHeader('Authorization');
         if (preg_match('/^Bearer\s+(\S+)$/i', trim($authorization), $matches)) {
             return $matches[1];

@@ -4,7 +4,7 @@
         <fruitcake_healthcheck>
             <general>
                 <enabled>1</enabled>
-                <endpoint>up</endpoint>
+                <endpoint>health</endpoint>
                 <show_details>1</show_details>
             </general>
             <checks>
@@ -13,6 +13,7 @@
                 <session_storage>1</session_storage>
                 <cache_types>1</cache_types>
                 <search_engine>1</search_engine>
+                <rabbitmq>1</rabbitmq>
                 <indexers>1</indexers>
                 <cron>1</cron>
                 <deploy_mode>1</deploy_mode>

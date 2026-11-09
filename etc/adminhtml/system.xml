@@ -16,7 +16,7 @@
                 </field>
                 <field id="endpoint" translate="label comment" type="text" sortOrder="20" showInDefault="1">
                     <label>Endpoint</label>
-                    <comment>Path of the health check, e.g. "up" for https://example.com/up. Lowercase letters, digits, "-", "_" and "/". Pick a path no other page uses: this route is matched first.</comment>
+                    <comment>Path of the health check, e.g. "health" for https://example.com/health. Lowercase letters, digits, "-", "_" and "/". Pick a path no other page uses: this route is matched first.</comment>
                     <validate>required-entry validate-identifier</validate>
                     <depends>
                         <field id="enabled">1</field>
@@ -77,6 +77,11 @@
                 </field>
                 <field id="search_engine" translate="label" type="select" sortOrder="40" showInDefault="1">
                     <label>Search Engine (OpenSearch/Elasticsearch)</label>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="rabbitmq" translate="label comment" type="select" sortOrder="45" showInDefault="1">
+                    <label>RabbitMQ</label>
+                    <comment>Connects with queue/amqp from env.php. Passes when no RabbitMQ is configured.</comment>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>
                 <field id="indexers" translate="label comment" type="select" sortOrder="50" showInDefault="1">
