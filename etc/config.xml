@@ -10,6 +10,7 @@
             <checks>
                 <database>1</database>
                 <cache_storage>1</cache_storage>
+                <session_storage>1</session_storage>
                 <cache_types>1</cache_types>
                 <search_engine>1</search_engine>
                 <indexers>1</indexers>

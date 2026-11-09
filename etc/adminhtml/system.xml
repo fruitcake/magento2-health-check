@@ -51,6 +51,11 @@
                     <label>Cache Storage</label>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>
+                <field id="session_storage" translate="label comment" type="select" sortOrder="25" showInDefault="1">
+                    <label>Session Storage</label>
+                    <comment>Writes and reads a session in the storage from env.php (files, Redis or database).</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
                 <field id="cache_types" translate="label comment" type="select" sortOrder="30" showInDefault="1">
                     <label>Cache Types</label>
                     <comment>Warns about disabled or invalidated cache types.</comment>
