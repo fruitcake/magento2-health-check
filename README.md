@@ -64,6 +64,7 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 |---|---|---|
 | `database` | no connection | |
 | `cache_storage` | a cache frontend (default, page_cache) cannot write and read back a value | |
+| `session_storage` | the session storage from `env.php` (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached) |
 | `cache_types` | | a cache type is disabled or invalidated |
 | `search_engine` | OpenSearch/Elasticsearch (Magento's own or Amasty Elastic Search) does not answer a ping | no connection test exists for the configured engine |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
@@ -73,6 +74,8 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 | `disk_space` | free space on `var/` below 2% | free space below 10% |
 
 A check that throws an exception counts as failed. Failed checks are logged.
+
+`session_storage` tests the handler itself. Magento falls back to file sessions when Redis is down, so the shop seems to work while every node keeps its own sessions and customers get logged out.
 
 ## Security
 
