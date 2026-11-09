@@ -11,6 +11,7 @@
         <observer name="fruitcake_healthcheck_deploy_mode" instance="Fruitcake\HealthCheck\Observer\Check\DeployMode"/>
         <observer name="fruitcake_healthcheck_debug" instance="Fruitcake\HealthCheck\Observer\Check\Debug"/>
         <observer name="fruitcake_healthcheck_disk_space" instance="Fruitcake\HealthCheck\Observer\Check\DiskSpace"/>
+        <observer name="fruitcake_healthcheck_opcache" instance="Fruitcake\HealthCheck\Observer\Check\Opcache"/>
         <observer name="fruitcake_healthcheck_two_factor_auth" instance="Fruitcake\HealthCheck\Observer\Check\TwoFactorAuth"/>
     </event>
 </config>

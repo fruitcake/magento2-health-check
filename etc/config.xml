@@ -18,6 +18,7 @@
                 <deploy_mode>1</deploy_mode>
                 <debug>1</debug>
                 <disk_space>1</disk_space>
+                <opcache>1</opcache>
                 <two_factor_auth>1</two_factor_auth>
             </checks>
             <thresholds>

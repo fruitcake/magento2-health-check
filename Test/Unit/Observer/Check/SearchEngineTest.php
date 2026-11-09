@@ -8,12 +8,14 @@ use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\HealthReport;
 use Fruitcake\HealthCheck\Model\SearchEngine\ConnectionTesterInterface;
 use Fruitcake\HealthCheck\Model\SearchEngine\CoreConnectionTester;
+use Fruitcake\HealthCheck\Model\SearchEngine\ElasticsuiteConnectionTester;
 use Fruitcake\HealthCheck\Observer\Check\SearchEngine;
 use Fruitcake\HealthCheck\Test\Unit\ConfigStub;
 use Magento\AdvancedSearch\Model\Client\ClientInterface;
 use Magento\AdvancedSearch\Model\Client\ClientResolver;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Search\EngineResolverInterface;
+use Magento\Framework\ObjectManagerInterface;
 use PHPUnit\Framework\TestCase;
 
 class SearchEngineTest extends TestCase
@@ -59,6 +61,17 @@ class SearchEngineTest extends TestCase
 
         $this->assertNull($tester->test('amasty_elastic'));
         $this->assertFalse($tester->test('opensearch'));
+    }
+
+    public function testElasticsuiteTesterOnlyKnowsElasticsuiteWhenInstalled(): void
+    {
+        $objectManager = $this->createMock(ObjectManagerInterface::class);
+        $objectManager->expects($this->never())->method('get');
+        $tester = new ElasticsuiteConnectionTester($objectManager);
+
+        $this->assertNull($tester->test('opensearch'));
+        // ElasticSuite is not installed here, so its client is never fetched
+        $this->assertNull($tester->test('elasticsuite'));
     }
 
     /**
