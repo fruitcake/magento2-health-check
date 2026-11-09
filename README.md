@@ -79,6 +79,7 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 | `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached), or database sessions without garbage collection (`session.gc_probability = 0`), so the `session` table keeps growing |
 | `cache_types` | | a cache type is disabled or invalidated |
 | `search_engine` | OpenSearch/Elasticsearch (Magento's own, Amasty Elastic Search or Smile ElasticSuite) does not answer a ping | no connection test exists for the configured engine |
+| `rabbitmq` | no connection to RabbitMQ with `queue/amqp` from `env.php` (passes without connecting when it is not configured) | |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
 | `cron` | | no cron job finished within the threshold (15 minutes). The module adds an index on `cron_schedule` (`status`, `finished_at`) so this stays fast on a large table |
 | `deploy_mode` | | not in production mode |
@@ -109,21 +110,21 @@ Extend `AbstractCheck` and listen to `fruitcake_healthcheck_diagnose`:
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Observer\AbstractCheck;
 
-class Rabbitmq extends AbstractCheck
+class Erp extends AbstractCheck
 {
     // Add a constructor with your own dependencies; pass Config on to parent::__construct()
 
 
     public function getCode(): string
     {
-        return 'rabbitmq';
+        return 'erp';
     }
 
     protected function check(): CheckResult
     {
         return $this->isConnected()
             ? CheckResult::ok()
-            : CheckResult::failed('RabbitMQ is not reachable');
+            : CheckResult::failed('ERP is not reachable');
     }
 }
 ```
@@ -131,7 +132,7 @@ class Rabbitmq extends AbstractCheck
 ```xml
 <!-- etc/events.xml -->
 <event name="fruitcake_healthcheck_diagnose">
-    <observer name="vendor_module_rabbitmq" instance="Vendor\Module\Observer\Rabbitmq"/>
+    <observer name="vendor_module_erp" instance="Vendor\Module\Observer\Erp"/>
 </event>
 ```
 
@@ -140,7 +141,7 @@ class Rabbitmq extends AbstractCheck
 <default>
     <fruitcake_healthcheck>
         <checks>
-            <rabbitmq>1</rabbitmq>
+            <erp>1</erp>
         </checks>
     </fruitcake_healthcheck>
 </default>
