@@ -6,9 +6,11 @@ namespace Fruitcake\HealthCheck\Test\Unit\Observer\Check;
 
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\HealthReport;
+use Fruitcake\HealthCheck\Model\RedisInfo;
 use Fruitcake\HealthCheck\Observer\Check\CacheStorage;
 use Fruitcake\HealthCheck\Test\Unit\ConfigStub;
 use Magento\Framework\App\Cache\Frontend\Pool;
+use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\Cache\FrontendInterface;
 use Magento\Framework\Event\Observer;
 use PHPUnit\Framework\TestCase;
@@ -26,6 +28,19 @@ class CacheStorageTest extends TestCase
 
         $this->assertSame(CheckResult::OK, $result->status);
         $this->assertSame(['backends' => ['default' => 'Database', 'page_cache' => 'File']], $result->meta);
+    }
+
+    public function testRedisFrontendsAreMeasured(): void
+    {
+        $result = $this->check([
+            'default' => $this->frontend(new Fixture\Redis()),
+            'page_cache' => $this->frontend($this->backend(\Zend_Cache_Backend_File::class)),
+        ], ['used_memory' => 512, 'maxmemory' => 1024, 'evicted_keys' => 7]);
+
+        $this->assertSame(CheckResult::OK, $result->status);
+        $this->assertSame(['value' => 50.0, 'unit' => 'percent'], $result->measurements['defaultMemoryUsed']);
+        $this->assertSame(['value' => 7, 'unit' => null], $result->measurements['defaultEvictedKeys']);
+        $this->assertArrayNotHasKey('pageCacheMemoryUsed', $result->measurements);
     }
 
     public function testFrontendThatDoesNotReadBackFails(): void
@@ -73,7 +88,7 @@ class CacheStorageTest extends TestCase
     /**
      * @param array<string, FrontendInterface> $frontends
      */
-    private function check(array $frontends): CheckResult
+    private function check(array $frontends, ?array $redisInfo = null): CheckResult
     {
         $iterator = new \ArrayIterator($frontends);
         $pool = $this->createMock(Pool::class);
@@ -84,7 +99,17 @@ class CacheStorageTest extends TestCase
         $pool->method('next')->willReturnCallback(static fn () => $iterator->next());
 
         $report = new HealthReport();
-        $check = new CacheStorage($this->createConfig(['fruitcake_healthcheck/checks/cache_storage' => '1']), $pool);
+        $deploymentConfig = $this->createMock(DeploymentConfig::class);
+        $deploymentConfig->method('get')->willReturn(['server' => 'redis', 'port' => '6379']);
+        $redis = $this->createPartialMock(RedisInfo::class, ['get']);
+        $redis->method('get')->willReturn($redisInfo);
+
+        $check = new CacheStorage(
+            $this->createConfig(['fruitcake_healthcheck/checks/cache_storage' => '1']),
+            $pool,
+            $deploymentConfig,
+            $redis
+        );
         $check->execute(new Observer(['report' => $report]));
 
         return $report->getResults()['cache_storage'];

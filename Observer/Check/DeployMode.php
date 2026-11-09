@@ -30,6 +30,31 @@ class DeployMode extends AbstractCheck
             return CheckResult::warning(sprintf('Running in %s mode', $mode), ['mode' => $mode]);
         }
 
+        $classMap = $this->getComposerClassMap();
+        if ($classMap !== null && !isset($classMap[\Magento\Framework\App\Http::class])) {
+            return CheckResult::warning(
+                'Composer autoloader is not optimized: run composer dump-autoload --optimize',
+                ['mode' => $mode, 'autoloader_optimized' => false]
+            );
+        }
+
         return CheckResult::ok('', ['mode' => $mode]);
+    }
+
+    /**
+     * The class map of Composer's autoloader, null when it is not found. An optimized autoloader maps
+     * every class, so Magento's own classes are in it.
+     *
+     * @return array<string, string>|null
+     */
+    protected function getComposerClassMap(): ?array
+    {
+        foreach (spl_autoload_functions() ?: [] as $function) {
+            if (is_array($function) && $function[0] instanceof \Composer\Autoload\ClassLoader) {
+                return $function[0]->getClassMap();
+            }
+        }
+
+        return null;
     }
 }

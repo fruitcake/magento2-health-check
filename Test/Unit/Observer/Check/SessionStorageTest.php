@@ -6,6 +6,7 @@ namespace Fruitcake\HealthCheck\Test\Unit\Observer\Check;
 
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\HealthReport;
+use Fruitcake\HealthCheck\Model\RedisInfo;
 use Fruitcake\HealthCheck\Observer\Check\SessionStorage;
 use Fruitcake\HealthCheck\Test\Unit\ConfigStub;
 use Magento\Framework\App\DeploymentConfig;
@@ -40,6 +41,28 @@ class SessionStorageTest extends TestCase
         $this->assertSame(CheckResult::WARNING, $off->status);
         $this->assertSame(0, $off->meta['gc_probability']);
         $this->assertSame(CheckResult::OK, $on->status);
+    }
+
+    public function testRedisMemoryAndEvictionsAreMeasured(): void
+    {
+        $info = ['used_memory' => 256, 'maxmemory' => 1024, 'evicted_keys' => 0, 'maxmemory_policy' => 'noeviction'];
+
+        $result = $this->check(['session/save' => 'redis'], $this->storage(), redisInfo: $info);
+
+        $this->assertSame(CheckResult::OK, $result->status);
+        $this->assertSame(['value' => 25.0, 'unit' => 'percent'], $result->measurements['memoryUsed']);
+        $this->assertSame(['value' => 0, 'unit' => null], $result->measurements['evictedKeys']);
+        $this->assertSame('noeviction', $result->meta['maxmemory_policy']);
+    }
+
+    public function testRedisEvictionsWarn(): void
+    {
+        $info = ['used_memory' => 1024, 'maxmemory' => 1024, 'evicted_keys' => 42, 'maxmemory_policy' => 'allkeys-lru'];
+
+        $result = $this->check(['session/save' => 'redis'], $this->storage(), redisInfo: $info);
+
+        $this->assertSame(CheckResult::WARNING, $result->status);
+        $this->assertStringContainsString('evicted 42 keys', $result->message);
     }
 
     public function testRedisThatDoesNotStoreFails(): void
@@ -161,8 +184,14 @@ class SessionStorageTest extends TestCase
     /**
      * @param array<string, string> $env env.php values
      */
-    private function check(array $env, ?\SessionHandlerInterface $storage = null, string $savePath = ''): CheckResult
-    {
+    private function check(
+        array $env,
+        ?\SessionHandlerInterface $storage = null,
+        string $savePath = '',
+        ?array $redisInfo = null
+    ): CheckResult {
+        $redis = $this->createPartialMock(RedisInfo::class, ['get']);
+        $redis->method('get')->willReturn($redisInfo);
         $sessionConfig = $this->createMock(SessionConfig::class);
         $sessionConfig->method('getSavePath')->willReturn($savePath);
 
@@ -177,7 +206,8 @@ class SessionStorageTest extends TestCase
             $this->createConfig(['fruitcake_healthcheck/checks/session_storage' => '1']),
             $deploymentConfig,
             $factory,
-            $sessionConfig
+            $sessionConfig,
+            $redis
         );
         $check->execute(new Observer(['report' => $report]));
 
