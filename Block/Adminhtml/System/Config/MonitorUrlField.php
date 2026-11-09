@@ -43,7 +43,7 @@ class MonitorUrlField extends Field
             . "var endpoint = document.getElementById(%s);"
             . "var key = document.getElementById(%s);"
             . "var update = function () {"
-            . "  var path = (endpoint && endpoint.value ? endpoint.value : 'up').replace(/^\\/+|\\/+$/g, '');"
+            . "  var path = (endpoint && endpoint.value ? endpoint.value : 'health').replace(/^\\/+|\\/+$/g, '');"
             . "  var value = key ? key.value.trim() : '';"
             . "  output.value = %s + path + (value ? '?key=' + encodeURIComponent(value) : '');"
             . "};"

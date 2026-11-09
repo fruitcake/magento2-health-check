@@ -20,9 +20,9 @@ class RouterTest extends TestCase
     public static function matchingPaths(): array
     {
         return [
-            'default endpoint' => [null, '/up'],
-            'trailing slash' => [null, '/up/'],
-            'custom endpoint with slashes in config' => ['/health/check/', '/health/check'],
+            'default endpoint' => [null, '/health'],
+            'trailing slash' => [null, '/health/'],
+            'custom endpoint with slashes in config' => ['/up/', '/up'],
         ];
     }
 
@@ -45,8 +45,8 @@ class RouterTest extends TestCase
     {
         return [
             'home' => ['/'],
-            'prefix' => ['/upload'],
-            'nested' => ['/catalog/up'],
+            'prefix' => ['/healthy'],
+            'nested' => ['/catalog/health'],
         ];
     }
 
@@ -55,7 +55,7 @@ class RouterTest extends TestCase
     {
         $router = new Router($this->neverCreates(), $this->createConfig([
             'fruitcake_healthcheck/general/enabled' => '1',
-            'fruitcake_healthcheck/general/endpoint' => 'up',
+            'fruitcake_healthcheck/general/endpoint' => 'health',
         ]));
 
         $this->assertNull($router->match($this->request($path)));
@@ -65,10 +65,10 @@ class RouterTest extends TestCase
     {
         $router = new Router($this->neverCreates(), $this->createConfig([
             'fruitcake_healthcheck/general/enabled' => '0',
-            'fruitcake_healthcheck/general/endpoint' => 'up',
+            'fruitcake_healthcheck/general/endpoint' => 'health',
         ]));
 
-        $this->assertNull($router->match($this->request('/up')));
+        $this->assertNull($router->match($this->request('/health')));
     }
 
     private function request(string $path): Http

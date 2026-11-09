@@ -32,7 +32,7 @@ class Config
     {
         $endpoint = trim((string) $this->scopeConfig->getValue(self::PREFIX . 'general/endpoint'), " /");
 
-        return $endpoint !== '' ? $endpoint : 'up';
+        return $endpoint !== '' ? $endpoint : 'health';
     }
 
     /**

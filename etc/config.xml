@@ -4,7 +4,7 @@
         <fruitcake_healthcheck>
             <general>
                 <enabled>1</enabled>
-                <endpoint>up</endpoint>
+                <endpoint>health</endpoint>
                 <show_details>1</show_details>
             </general>
             <checks>
