@@ -48,6 +48,10 @@ With details, a `warn` or `fail` response also gets a top-level `output` with ev
 
 Each check holds a list with one check object, as the draft prescribes. `output` holds the message for `warn` and `fail` only. `durationMs` and `meta` are additions of this module.
 
+### Oh Dear
+
+The endpoint also speaks the format of [Oh Dear's Application Health monitoring](https://ohdear.app/docs/features/application-health-monitoring). In Oh Dear, set the health check URL to the endpoint and the secret to the key. Oh Dear sends the key in the `oh-dear-health-check-secret` header, which gets that format; `?format=ohdear` does the same for testing. The response is always HTTP 200, as the status of each check is in the body, and `403` for a wrong secret. Every check becomes a check result; nested `meta` values are joined into one string, as Oh Dear shows meta as keys and values. Without details, the only result is `health` with the overall status.
+
 ## Defaults
 
 The module works right after install: `/up` is public, returns only the overall status and runs every check below. No check is strict, so warnings never turn the endpoint red.
