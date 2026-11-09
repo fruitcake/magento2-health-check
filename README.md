@@ -71,7 +71,7 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 |---|---|---|
 | `database` | no connection | |
 | `cache_storage` | a cache frontend (default, page_cache) cannot write and read back a value | |
-| `session_storage` | the session storage from `env.php` (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached) |
+| `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached) |
 | `cache_types` | | a cache type is disabled or invalidated |
 | `search_engine` | OpenSearch/Elasticsearch (Magento's own or Amasty Elastic Search) does not answer a ping | no connection test exists for the configured engine |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
@@ -82,7 +82,7 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 
 A check that throws an exception counts as failed, also an observer that does not extend `AbstractCheck`; the checks after it still run. Failed checks are logged, the same failure at most once every 5 minutes.
 
-`session_storage` tests the handler itself. Magento falls back to file sessions when Redis is down, so the shop seems to work while every node keeps its own sessions and customers get logged out. For file sessions it writes in the save path PHP uses, including the subdirectories of a `N;/path` save path.
+`session_storage` tests the handler Magento actually uses. Magento only knows `db` and `redis` in `session/save`; another value, e.g. `database`, gives PHP's own handler (usually files), and `meta` then shows both `handler` and `configured`. It tests the handler itself. Magento falls back to file sessions when Redis is down, so the shop seems to work while every node keeps its own sessions and customers get logged out. For file sessions it writes in the save path PHP uses, including the subdirectories of a `N;/path` save path.
 
 ## Security
 

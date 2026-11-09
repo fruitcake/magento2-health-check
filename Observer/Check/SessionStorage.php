@@ -36,8 +36,9 @@ class SessionStorage extends AbstractCheck
 
     protected function check(): CheckResult
     {
-        $handler = (string) ($this->deploymentConfig->get('session/save') ?: SaveHandlerInterface::DEFAULT_HANDLER);
-        $meta = ['handler' => $handler];
+        $configured = (string) ($this->deploymentConfig->get('session/save') ?: SaveHandlerInterface::DEFAULT_HANDLER);
+        $handler = $this->getEffectiveHandler($configured);
+        $meta = ['handler' => $handler] + ($handler !== $configured ? ['configured' => $configured] : []);
 
         $works = match ($handler) {
             'files' => $this->testFiles(),
@@ -52,6 +53,20 @@ class SessionStorage extends AbstractCheck
         return $works
             ? CheckResult::ok('', $meta)
             : CheckResult::failed(sprintf('Session storage "%s" cannot write and read back a session', $handler), $meta);
+    }
+
+    /**
+     * Magento has its own handlers for "db" and "redis" only (SaveHandlerFactory in app/etc/di.xml). Anything else,
+     * e.g. "database", uses PHP's own handler, and only "memcached" is passed on to php.ini: the rest keeps
+     * PHP's session.save_handler, usually files.
+     */
+    private function getEffectiveHandler(string $configured): string
+    {
+        if (in_array($configured, ['db', 'redis', 'memcached'], true)) {
+            return $configured;
+        }
+
+        return (string) (ini_get('session.save_handler') ?: SaveHandlerInterface::DEFAULT_HANDLER);
     }
 
     private function testHandler(string $handler): bool

@@ -82,6 +82,18 @@ class SessionStorageTest extends TestCase
         $this->assertSame(CheckResult::FAILED, $result->status);
     }
 
+    public function testHandlerMagentoDoesNotKnowUsesPhpFiles(): void
+    {
+        $dir = sys_get_temp_dir() . '/healthcheck_' . bin2hex(random_bytes(4));
+        mkdir($dir);
+
+        $result = $this->check(['session/save' => 'database'], savePath: $dir);
+        rmdir($dir);
+
+        $this->assertSame(CheckResult::OK, $result->status);
+        $this->assertSame(['handler' => 'files', 'configured' => 'database'], $result->meta);
+    }
+
     public function testUnknownHandlerWarns(): void
     {
         $result = $this->check(['session/save' => 'memcached']);
