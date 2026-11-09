@@ -6,6 +6,7 @@ namespace Fruitcake\HealthCheck\Test\Unit\Controller\Index;
 
 use Fruitcake\HealthCheck\Controller\Index\Index;
 use Fruitcake\HealthCheck\Model\CheckResult;
+use Fruitcake\HealthCheck\Model\Format\OhDear;
 use Fruitcake\HealthCheck\Model\HealthCheck;
 use Fruitcake\HealthCheck\Model\HealthReport;
 use Fruitcake\HealthCheck\Model\ServiceInfo;
@@ -216,6 +217,81 @@ class IndexTest extends TestCase
         $this->assertArrayNotHasKey('output', json_decode($response['body'], true));
     }
 
+    public function testOhDearSecretHeaderGivesOhDearFormat(): void
+    {
+        $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
+        $checks = [
+            'database' => CheckResult::ok()->withDuration(1.23),
+            'cache_types' => CheckResult::warning('Disabled cache types: full_page', ['disabled' => ['full_page']]),
+            'search_engine' => CheckResult::failed('not reachable', ['engine' => 'opensearch']),
+        ];
+
+        $response = $this->call($checks, $config, ['oh-dear-health-check-secret' => 'secret']);
+        $body = json_decode($response['body'], true);
+
+        // 200 although a check failed: Oh Dear reads the status from the body
+        $this->assertSame(200, $response['code']);
+        $this->assertSame('application/json', $response['headers']['Content-Type']);
+        $this->assertIsInt($body['finishedAt']);
+        $this->assertSame([
+            [
+                'name' => 'database',
+                'label' => 'Database',
+                'status' => 'ok',
+                'notificationMessage' => '',
+                'shortSummary' => 'OK',
+                'meta' => ['duration_ms' => 1.2],
+            ],
+            [
+                'name' => 'cache_types',
+                'label' => 'Cache types',
+                'status' => 'warning',
+                'notificationMessage' => 'Disabled cache types: full_page',
+                'shortSummary' => 'Warning',
+                'meta' => ['disabled' => 'full_page'],
+            ],
+            [
+                'name' => 'search_engine',
+                'label' => 'Search engine',
+                'status' => 'failed',
+                'notificationMessage' => 'not reachable',
+                'shortSummary' => 'Failed',
+                'meta' => ['engine' => 'opensearch'],
+            ],
+        ], $body['checkResults']);
+    }
+
+    public function testWrongOhDearSecretIsForbidden(): void
+    {
+        $response = $this->call(
+            ['database' => CheckResult::ok()],
+            self::KEY_CONFIG,
+            ['oh-dear-health-check-secret' => 'wrong'],
+            expectChecks: false
+        );
+
+        $this->assertSame(403, $response['code']);
+    }
+
+    public function testOhDearFormatWithoutDetailsGivesOnlyOverallStatus(): void
+    {
+        $response = $this->call(
+            ['database' => CheckResult::failed('SQLSTATE[HY000] [2002] Connection refused')],
+            params: ['format' => 'ohdear']
+        );
+        $body = json_decode($response['body'], true);
+
+        $this->assertSame([[
+            'name' => 'health',
+            'label' => 'Health',
+            'status' => 'failed',
+            'notificationMessage' => '',
+            'shortSummary' => 'Failed',
+            'meta' => [],
+        ]], $body['checkResults']);
+        $this->assertStringNotContainsString('SQLSTATE', $response['body']);
+    }
+
     public function testNoReleaseIdWithoutDeployedVersion(): void
     {
         $this->releaseId = '';
@@ -284,7 +360,8 @@ class IndexTest extends TestCase
             $rawFactory,
             $this->createConfig($config + ['fruitcake_healthcheck/general/enabled' => '1']),
             $healthCheck,
-            $serviceInfo
+            $serviceInfo,
+            new OhDear()
         );
     }
 
