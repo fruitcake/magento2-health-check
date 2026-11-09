@@ -81,6 +81,18 @@ class Config
         return $this->hasKey() && $this->scopeConfig->isSetFlag(self::PREFIX . 'general/show_details');
     }
 
+    /**
+     * Extra monitor user agents from the admin, one per line, on top of the ones in di.xml.
+     *
+     * @return string[]
+     */
+    public function getMonitorUserAgents(): array
+    {
+        $value = (string) $this->scopeConfig->getValue(self::PREFIX . 'general/monitor_user_agents');
+
+        return array_values(array_filter(array_map('trim', preg_split('/\R/', $value) ?: [])));
+    }
+
     public function isCheckEnabled(string $code): bool
     {
         return $this->getCheckMode($code) !== CheckMode::OFF;

@@ -38,6 +38,13 @@
                         <field id="enabled">1</field>
                     </depends>
                 </field>
+                <field id="monitor_user_agents" translate="label comment" type="textarea" sortOrder="45" showInDefault="1">
+                    <label>Monitor User Agents</label>
+                    <comment><![CDATA[A browser gets an HTML page, monitors get JSON. Monitors that use a real browser are recognised by their user agent: add a part of it per line, e.g. "MyMonitor". StatusCake, UptimeRobot, Pingdom, Oh Dear, Checkly, Better Stack and others are built in.]]></comment>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
                 <field id="show_details" translate="label comment" type="select" sortOrder="40" showInDefault="1">
                     <label>Show Check Details</label>
                     <comment>Lists every check with its message in the response. Only applies when a key is set.</comment>

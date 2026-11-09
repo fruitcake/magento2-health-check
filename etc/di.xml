@@ -7,6 +7,31 @@
             </argument>
         </arguments>
     </type>
+    <!-- Monitors that may use a real browser: they always get JSON, never the HTML page. Parts of the user agent -->
+    <type name="Fruitcake\HealthCheck\Model\BrowserDetector">
+        <arguments>
+            <argument name="monitorUserAgents" xsi:type="array">
+                <item name="statuscake" xsi:type="string">StatusCake</item>
+                <item name="uptimerobot" xsi:type="string">UptimeRobot</item>
+                <item name="pingdom" xsi:type="string">Pingdom</item>
+                <item name="ohdear" xsi:type="string">OhDear</item>
+                <item name="ohdear_space" xsi:type="string">Oh Dear</item>
+                <item name="checkly" xsi:type="string">Checkly</item>
+                <item name="betteruptime" xsi:type="string">Better Uptime</item>
+                <item name="betterstack" xsi:type="string">Better Stack</item>
+                <item name="site24x7" xsi:type="string">Site24x7</item>
+                <item name="datadog" xsi:type="string">Datadog</item>
+                <item name="newrelic" xsi:type="string">NewRelic</item>
+                <item name="hetrixtools" xsi:type="string">HetrixTools</item>
+                <item name="freshping" xsi:type="string">Freshping</item>
+                <item name="updown" xsi:type="string">updown.io</item>
+                <item name="uptime_kuma" xsi:type="string">Uptime-Kuma</item>
+                <item name="googlehc" xsi:type="string">GoogleHC</item>
+                <item name="elb" xsi:type="string">ELB-HealthChecker</item>
+                <item name="kube_probe" xsi:type="string">kube-probe</item>
+            </argument>
+        </arguments>
+    </type>
     <type name="Fruitcake\HealthCheck\Observer\Check\SearchEngine">
         <arguments>
             <argument name="testers" xsi:type="array">

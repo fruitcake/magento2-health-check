@@ -53,6 +53,10 @@ With details, a `warn` or `fail` response also gets a top-level `output` with ev
 
 Each check holds a list with one check object, as the draft prescribes. `output` holds the message for `warn` and `fail` only. `durationMs` and `meta` are additions of this module.
 
+### In a browser
+
+Opened in a browser, the endpoint shows an HTML page: the status, a table of the checks, and the JSON. Browsers are recognised by the `Sec-Fetch-Dest: document` header, which monitors do not send, even the ones that pretend to be a browser, like StatusCake. Monitors that use a real browser get JSON by their user agent: StatusCake, UptimeRobot, Pingdom, Oh Dear, Checkly, Better Stack and others are built in, and **Monitor User Agents** in the configuration adds more. `?format=json` or `?format=html` overrides the detection. The HTTP status is the same, and the page holds the JSON too, so a keyword check on e.g. `"pass"` still matches.
+
 ## Defaults
 
 The module works right after install: `/up` is public, returns only the overall status and runs every check below. No check is strict, so warnings never turn the endpoint red.
@@ -64,6 +68,7 @@ Stores > Configuration > Fruitcake Extensions > Health Check:
 - **Endpoint**: the path, `up` by default.
 - **Key**: when set, requests need an `Authorization: Bearer <key>` header, or `?key=<key>` for monitors that cannot send headers. **Generate Key** fills in a random key. The key is stored as plain text, so it stays readable in the admin. Keys stored encrypted by 0.x still work and are saved as plain text on the next save. Set it from the CLI with `bin/magento config:set fruitcake_healthcheck/general/key <key>`, or in `env.php`.
 - **Monitor URL**: the full URL with `?key=` for the default store view, with a **Copy URL** button. It follows the endpoint and key fields as you type, so save before using it.
+- **Monitor User Agents**: parts of user agents, one per line, that always get JSON instead of the HTML page for browsers.
 - **Show Check Details**: adds every check with its status, message, meta data and duration to the response. On by default, but only applies when a key is set.
 - **Checks**: per check `No`, `Yes`, `Yes, warnings fail` or `Yes, warnings fail in production mode`. A strict check reports its warnings as failures, so the endpoint returns 503, e.g. when cron is behind. Keep checks non-strict when a load balancer uses the endpoint, or an invalid indexer takes every node out of rotation.
 - **Thresholds**: cron age, indexer backlog and free disk space.

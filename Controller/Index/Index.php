@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Fruitcake\HealthCheck\Controller\Index;
 
+use Fruitcake\HealthCheck\Model\BrowserDetector;
 use Fruitcake\HealthCheck\Model\Config;
+use Fruitcake\HealthCheck\Model\Format\Html;
 use Fruitcake\HealthCheck\Model\HealthCheck;
 use Fruitcake\HealthCheck\Model\ServiceInfo;
 use Magento\Framework\App\Action\HttpGetActionInterface;
@@ -23,7 +25,9 @@ class Index implements HttpGetActionInterface
         private readonly RawFactory $rawFactory,
         private readonly Config $config,
         private readonly HealthCheck $healthCheck,
-        private readonly ServiceInfo $serviceInfo
+        private readonly ServiceInfo $serviceInfo,
+        private readonly BrowserDetector $browserDetector,
+        private readonly Html $htmlFormat
     ) {
     }
 
@@ -55,15 +59,42 @@ class Index implements HttpGetActionInterface
 
     private function respond(int $code, array $data): ResultInterface
     {
-        return $this->rawFactory->create()
-            ->setContents(json_encode(
-                $data,
-                JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR
-            ))
-            ->setHeader('Content-Type', 'application/health+json', true)
+        $flags = JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR;
+        $result = $this->rawFactory->create();
+
+        if ($this->wantsHtml()) {
+            $result->setContents($this->htmlFormat->render($data, json_encode($data, $flags | JSON_PRETTY_PRINT)))
+                ->setHeader('Content-Type', 'text/html; charset=utf-8', true)
+                // Inline styles only: no scripts, no requests elsewhere, not in a frame
+                ->setHeader(
+                    'Content-Security-Policy',
+                    "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+                    true
+                );
+        } else {
+            $result->setContents(json_encode($data, $flags))
+                ->setHeader('Content-Type', 'application/health+json', true);
+        }
+
+        return $result
             ->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0', true)
             ->setHeader('X-Content-Type-Options', 'nosniff', true)
+            // The page differs per client, so a cache in between must not mix them up
+            ->setHeader('Vary', 'Sec-Fetch-Dest, User-Agent', true)
             ->setHttpResponseCode($code);
+    }
+
+    /**
+     * HTML for a person opening the endpoint in a browser, JSON for monitors. ?format=json or ?format=html decides.
+     */
+    private function wantsHtml(): bool
+    {
+        $format = $this->request->getParam('format');
+        if ($format === 'json' || $format === 'html') {
+            return $format === 'html';
+        }
+
+        return $this->browserDetector->isBrowser($this->request);
     }
 
     /**
