@@ -77,7 +77,17 @@ class SessionStorage extends AbstractCheck
             return $configured;
         }
 
-        return (string) (ini_get('session.save_handler') ?: SaveHandlerInterface::DEFAULT_HANDLER);
+        $handler = (string) ini_get('session.save_handler');
+        if ($handler === 'user' || $handler === '') {
+            // "user" once Magento registered its own handler with session_set_save_handler(): PHP's own handler,
+            // which Magento's Native handler wraps, is the one from php.ini or the PHP-FPM pool
+            $handler = (string) (ini_get_all('session')['session.save_handler']['global_value'] ?? '');
+            if ($handler === 'user' || $handler === '') {
+                $handler = (string) get_cfg_var('session.save_handler');
+            }
+        }
+
+        return $handler !== '' && $handler !== 'user' ? $handler : SaveHandlerInterface::DEFAULT_HANDLER;
     }
 
     private function testHandler(string $handler): bool
