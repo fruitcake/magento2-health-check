@@ -47,7 +47,7 @@
                     <label>Database Connection</label>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>
-                <field id="cache" translate="label" type="select" sortOrder="20" showInDefault="1">
+                <field id="cache_storage" translate="label" type="select" sortOrder="20" showInDefault="1">
                     <label>Cache Storage</label>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>

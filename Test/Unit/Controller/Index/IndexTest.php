@@ -56,7 +56,7 @@ class IndexTest extends TestCase
         $response = $this->call([
             'database' => CheckResult::failed('down'),
             'cron' => CheckResult::warning('late'),
-            'cache' => CheckResult::ok(),
+            'cache_storage' => CheckResult::ok(),
         ]);
 
         $this->assertSame(503, $response['code']);
