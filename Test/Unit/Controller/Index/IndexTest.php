@@ -395,6 +395,22 @@ class IndexTest extends TestCase
         $this->assertSame('text/html; charset=utf-8', $html['headers']['Content-Type']);
     }
 
+    public function testMeasurementsFollowTheirCheck(): void
+    {
+        $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
+        $checks = ['opcache' => CheckResult::warning('low')->withMeasurement('hitRate', 81, 'percent')
+            ->withMeasurement('cachedScripts', 4835)];
+
+        $body = json_decode($this->call($checks, $config, ['Authorization' => 'Bearer secret'])['body'], true);
+
+        $this->assertSame(['opcache', 'opcache:hitRate', 'opcache:cachedScripts'], array_keys($body['checks']));
+        $this->assertSame(
+            [['observedValue' => 81, 'observedUnit' => 'percent', 'status' => 'warn']],
+            $body['checks']['opcache:hitRate']
+        );
+        $this->assertSame([['observedValue' => 4835, 'status' => 'warn']], $body['checks']['opcache:cachedScripts']);
+    }
+
     public function testChecksIsAnObjectWhenNoCheckRan(): void
     {
         $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];

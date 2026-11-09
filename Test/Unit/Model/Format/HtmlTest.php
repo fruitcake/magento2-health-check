@@ -44,19 +44,21 @@ class HtmlTest extends TestCase
         $this->assertStringContainsString('<span class="chip-key">last_finished_at</span>2026-11-09 12:11:08 UTC</span>', $html);
     }
 
-    public function testPercentAndMegabyteKeysShowTheirUnit(): void
+    public function testMeasurementsAreChipsOfTheirCheck(): void
     {
-        $html = $this->render(['disk_space' => [['status' => 'pass', 'meta' => [
-            'free_percent' => 61.3,
-            'free_mb' => 48213,
-            'used_mb' => 512,
-            'name_percent' => 'not a number',
-        ]]]]);
+        $html = $this->render([
+            'disk_space' => [['status' => 'pass', 'meta' => ['path' => 'var']]],
+            'disk_space:free' => [['observedValue' => 61.3, 'observedUnit' => 'percent', 'status' => 'pass']],
+            'disk_space:freeSpace' => [['observedValue' => 48213, 'observedUnit' => 'MiB', 'status' => 'pass']],
+            'cron:lastFinished' => [['observedValue' => 3, 'observedUnit' => 'min', 'status' => 'pass']],
+        ]);
 
+        // One row for disk_space; a measurement without its check keeps a row of its own
+        preg_match_all('#data-check="([a-z_:A-Z]+)"#', $html, $matches);
+        $this->assertSame(['disk_space', 'cron:lastFinished'], $matches[1]);
         $this->assertStringContainsString('<span class="chip-key">free</span>61.3%</span>', $html);
-        $this->assertStringContainsString('<span class="chip-key">free</span>47.1 GB</span>', $html);
-        $this->assertStringContainsString('<span class="chip-key">used</span>512 MB</span>', $html);
-        $this->assertStringContainsString('<span class="chip-key">name_percent</span>not a number</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">freeSpace</span>47.1 GiB</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">path</span>var</span>', $html);
     }
 
     public function testBannerNamesTheFailingChecks(): void

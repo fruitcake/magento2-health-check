@@ -21,12 +21,12 @@ class OpcacheTest extends TestCase
 
         $this->assertSame(CheckResult::OK, $result->status);
         $this->assertSame([
-            'hit_rate_percent' => 99.5,
-            'memory_used_percent' => 50.0,
-            'keys_used_percent' => 25.0,
-            'cached_scripts' => 4000,
-            'oom_restarts' => 0,
-        ], $result->meta);
+            'hitRate' => ['value' => 99.5, 'unit' => 'percent'],
+            'memoryUsed' => ['value' => 50.0, 'unit' => 'percent'],
+            'keysUsed' => ['value' => 25.0, 'unit' => 'percent'],
+            'cachedScripts' => ['value' => 4000, 'unit' => null],
+            'oomRestarts' => ['value' => 0, 'unit' => null],
+        ], $result->measurements);
     }
 
     public function testDisabledWarns(): void

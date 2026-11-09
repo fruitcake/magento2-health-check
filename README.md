@@ -37,8 +37,11 @@ curl -H 'Authorization: Bearer <key>' https://example.com/health
   "releaseId": "1731151234",
   "checks": {
     "database": [{"status": "pass", "durationMs": 1.2}],
-    "cron": [{"status": "warn", "output": "Last cron job finished 42 minutes ago", "durationMs": 0.8, "meta": {"last_finished_at": "2026-11-09T10:18:00+00:00", "minutes_ago": 42}}],
-    "disk_space": [{"status": "pass", "durationMs": 0.1, "meta": {"free_percent": 61.3, "free_mb": 48213}}]
+    "cron": [{"status": "warn", "output": "Last cron job finished 42 minutes ago", "durationMs": 0.8, "meta": {"last_finished_at": "2026-11-09T10:18:00+00:00"}}],
+    "cron:lastFinished": [{"observedValue": 42, "observedUnit": "min", "status": "warn"}],
+    "disk_space": [{"status": "pass", "durationMs": 0.1}],
+    "disk_space:free": [{"observedValue": 61.3, "observedUnit": "percent", "status": "pass"}],
+    "disk_space:freeSpace": [{"observedValue": 48213, "observedUnit": "MiB", "status": "pass"}]
   }
 }
 ```
@@ -51,7 +54,7 @@ With details, a `warn` or `fail` response also gets a top-level `output` with ev
 {"status": "fail", "output": "search_engine: Search engine \"elasticsearch8\" is not reachable; cron: Last cron job finished 42 minutes ago", "checks": {...}}
 ```
 
-Each check holds a list with one check object, as the draft prescribes. `output` holds the message for `warn` and `fail` only. `durationMs` and `meta` are additions of this module.
+Each check holds a list with one check object, as the draft prescribes, followed by its measurements as `<check>:<measurement>` with `observedValue` and `observedUnit`. `output` holds the message for `warn` and `fail` only. `durationMs` and `meta` are additions of this module.
 
 ### Oh Dear
 
@@ -156,7 +159,7 @@ class Erp extends AbstractCheck
 </default>
 ```
 
-Meta values are shown as they are in JSON. On the HTML page, numeric values of keys ending in `_percent` or `_mb` show their unit: `free_percent: 61.3` becomes `free 61.3%`, `free_mb: 48213` becomes `free 47.1 GB`. Use these suffixes for your own checks too.
+Report measured values as measurements, not in `meta`: `CheckResult::ok()->withMeasurement('hitRate', 99.5, 'percent')`. They appear as `"<code>:<name>"` with `observedValue` and `observedUnit`, as draft-inadarei-api-health-check prescribes, e.g. `"opcache:hitRate": [{"observedValue": 99.5, "observedUnit": "percent", "status": "pass"}]`, with the status of the check. Use `meta` for the rest, like names and modes.
 
 To make it configurable in the admin, add a field to the `fruitcake_healthcheck/checks` group in your own `system.xml`, with `Fruitcake\HealthCheck\Model\Config\Source\CheckMode` as source model.
 

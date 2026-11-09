@@ -33,16 +33,18 @@ class DiskSpace extends AbstractCheck
         }
 
         $percent = round($free / $total * 100, 1);
-        $meta = ['free_percent' => $percent, 'free_mb' => (int) ($free / 1024 / 1024)];
         $message = sprintf('%s%% disk space free', $percent);
 
         if ($percent < $this->config->getThreshold('disk_free_failed')) {
-            return CheckResult::failed($message, $meta);
-        }
-        if ($percent < $this->config->getThreshold('disk_free_warning')) {
-            return CheckResult::warning($message, $meta);
+            $result = CheckResult::failed($message);
+        } elseif ($percent < $this->config->getThreshold('disk_free_warning')) {
+            $result = CheckResult::warning($message);
+        } else {
+            $result = CheckResult::ok($message);
         }
 
-        return CheckResult::ok($message, $meta);
+        return $result
+            ->withMeasurement('free', $percent, 'percent')
+            ->withMeasurement('freeSpace', (int) ($free / 1024 / 1024), 'MiB');
     }
 }

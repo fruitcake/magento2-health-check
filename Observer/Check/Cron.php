@@ -38,13 +38,14 @@ class Cron extends AbstractCheck
         // cron_schedule stores times in UTC
         $finishedAt = new \DateTimeImmutable($last, new \DateTimeZone('UTC'));
         $minutes = (int) floor((time() - $finishedAt->getTimestamp()) / 60);
-        $meta = ['last_finished_at' => $finishedAt->format(DATE_ATOM), 'minutes_ago' => $minutes];
+        $meta = ['last_finished_at' => $finishedAt->format(DATE_ATOM)];
 
         $max = (int) $this->config->getThreshold('cron_max_minutes');
         if ($minutes > $max) {
-            return CheckResult::warning(sprintf('Last cron job finished %d minutes ago', $minutes), $meta);
+            return CheckResult::warning(sprintf('Last cron job finished %d minutes ago', $minutes), $meta)
+                ->withMeasurement('lastFinished', $minutes, 'min');
         }
 
-        return CheckResult::ok('', $meta);
+        return CheckResult::ok('', $meta)->withMeasurement('lastFinished', $minutes, 'min');
     }
 }

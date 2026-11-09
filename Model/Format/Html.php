@@ -50,7 +50,19 @@ class Html implements FormatInterface
     public function renderPage(array $data, string $json): string
     {
         $status = (string) ($data['status'] ?? '');
-        $checks = $this->sortProblemsFirst($data['checks'] ?? []);
+        // Measurements ("opcache:hitRate") are shown with their check, not as rows of their own
+        $all = (array) ($data['checks'] ?? []);
+        $checks = [];
+        $measurements = [];
+        foreach ($all as $key => $results) {
+            [$code, $name] = array_pad(explode(':', (string) $key, 2), 2, null);
+            if ($name !== null && isset($all[$code])) {
+                $measurements[$code][$name] = (array) ($results[0] ?? []);
+            } else {
+                $checks[$key] = $results;
+            }
+        }
+        $checks = $this->sortProblemsFirst($checks);
 
         $counts = ['fail' => 0, 'warn' => 0, 'pass' => 0];
         $totalMs = 0.0;
@@ -61,7 +73,7 @@ class Html implements FormatInterface
                 $checkStatus = (string) ($result['status'] ?? '');
                 $counts[$checkStatus] = ($counts[$checkStatus] ?? 0) + 1;
                 $totalMs += (float) ($result['durationMs'] ?? 0);
-                $rows .= $this->renderRow((string) $code, $result);
+                $rows .= $this->renderRow((string) $code, $result, $measurements[$code] ?? []);
                 if ($checkStatus === $status && $status !== 'pass') {
                     $problems[] = [(string) $code, (string) ($result['output'] ?? '')];
                 }
@@ -141,11 +153,14 @@ class Html implements FormatInterface
             . '<span class="stat-label">' . $this->escape($label) . '</span></div>';
     }
 
-    private function renderRow(string $code, array $result): string
+    /**
+     * @param array<string, array<string, mixed>> $measurements the check's measurements, by name
+     */
+    private function renderRow(string $code, array $result, array $measurements = []): string
     {
         $status = (string) ($result['status'] ?? '');
         $output = (string) ($result['output'] ?? '');
-        $chips = $this->renderMeta((array) ($result['meta'] ?? []));
+        $chips = $this->renderMeasurements($measurements) . $this->renderMeta((array) ($result['meta'] ?? []));
 
         return '<tr class="' . $this->escape($status) . '" data-check="' . $this->escape($code) . '">'
             . '<td class="mono strong">' . $this->escape($code) . '</td>'
@@ -186,8 +201,38 @@ class Html implements FormatInterface
     }
 
     /**
+     * One chip per measurement: its name and observedValue with observedUnit, e.g. "hitRate 99.5%".
+     *
+     * @param array<string, array<string, mixed>> $measurements
+     */
+    private function renderMeasurements(array $measurements): string
+    {
+        $chips = '';
+        foreach ($measurements as $name => $measurement) {
+            $chips .= '<span class="chip"><span class="chip-key">' . $this->escape((string) $name) . '</span>'
+                . $this->escape($this->formatObserved($measurement['observedValue'] ?? '', $measurement['observedUnit'] ?? null))
+                . '</span>';
+        }
+
+        return $chips;
+    }
+
+    private function formatObserved(mixed $value, ?string $unit): string
+    {
+        if (!is_int($value) && !is_float($value)) {
+            return $this->formatValue($value);
+        }
+
+        return match ($unit) {
+            null, '' => (string) $value,
+            'percent' => $value . '%',
+            'MiB' => $value >= 1024 ? round($value / 1024, 1) . ' GiB' : $value . ' MiB',
+            default => $value . ' ' . $unit,
+        };
+    }
+
+    /**
      * One chip per meta item; a nested object becomes a chip per key, a list is joined with commas.
-     * Keys ending in _percent or _mb show their unit instead: memory_used_percent 36.1 becomes memory_used 36.1%.
      */
     private function renderMeta(array $meta): string
     {
@@ -197,31 +242,11 @@ class Html implements FormatInterface
                 $chips .= $this->renderMeta($value);
                 continue;
             }
-            [$label, $text] = $this->formatMetaItem((string) $key, $value);
-            $chips .= '<span class="chip"><span class="chip-key">' . $this->escape($label) . '</span>'
-                . $this->escape($text) . '</span>';
+            $chips .= '<span class="chip"><span class="chip-key">' . $this->escape((string) $key) . '</span>'
+                . $this->escape($this->formatValue($value)) . '</span>';
         }
 
         return $chips;
-    }
-
-    /**
-     * @return array{string, string} label and value
-     */
-    private function formatMetaItem(string $key, mixed $value): array
-    {
-        if (is_int($value) || is_float($value)) {
-            if (str_ends_with($key, '_percent')) {
-                return [substr($key, 0, -strlen('_percent')), $value . '%'];
-            }
-            if (str_ends_with($key, '_mb')) {
-                $label = substr($key, 0, -strlen('_mb'));
-
-                return [$label, $value >= 1024 ? round($value / 1024, 1) . ' GB' : $value . ' MB'];
-            }
-        }
-
-        return [$key, $this->formatValue($value)];
     }
 
     private function formatValue(mixed $value): string

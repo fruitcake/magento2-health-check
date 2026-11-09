@@ -51,14 +51,6 @@ class Opcache extends AbstractCheck
         $hitRate = round((float) ($statistics['opcache_hit_rate'] ?? 0), 1);
         $requests = (int) ($statistics['hits'] ?? 0) + (int) ($statistics['misses'] ?? 0);
 
-        $meta = [
-            'hit_rate_percent' => $hitRate,
-            'memory_used_percent' => $memoryUsed,
-            'keys_used_percent' => $keysUsed,
-            'cached_scripts' => (int) ($statistics['num_cached_scripts'] ?? 0),
-            'oom_restarts' => (int) ($statistics['oom_restarts'] ?? 0),
-        ];
-
         $problems = [];
         if (!empty($status['cache_full'])) {
             $problems[] = 'cache is full';
@@ -72,9 +64,14 @@ class Opcache extends AbstractCheck
             $problems[] = sprintf('hit rate %s%%', $hitRate);
         }
 
-        return $problems
-            ? CheckResult::warning('OPcache ' . implode(', ', $problems), $meta)
-            : CheckResult::ok('', $meta);
+        $result = $problems ? CheckResult::warning('OPcache ' . implode(', ', $problems)) : CheckResult::ok();
+
+        return $result
+            ->withMeasurement('hitRate', $hitRate, 'percent')
+            ->withMeasurement('memoryUsed', $memoryUsed, 'percent')
+            ->withMeasurement('keysUsed', $keysUsed, 'percent')
+            ->withMeasurement('cachedScripts', (int) ($statistics['num_cached_scripts'] ?? 0))
+            ->withMeasurement('oomRestarts', (int) ($statistics['oom_restarts'] ?? 0));
     }
 
     protected function isEnabled(): bool

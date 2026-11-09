@@ -79,7 +79,14 @@ class OhDear implements FormatInterface
 
     private function toResult(string $code, CheckResult $result): array
     {
-        $meta = $result->meta;
+        // Measurements first, with their unit: Oh Dear shows meta as keys and values
+        $meta = [];
+        foreach ($result->measurements as $name => $measurement) {
+            $meta[$name] = $measurement['unit'] === 'percent'
+                ? $measurement['value'] . '%'
+                : trim($measurement['value'] . ' ' . $measurement['unit']);
+        }
+        $meta += $result->meta;
         if ($result->durationMs !== null) {
             $meta['duration_ms'] = round($result->durationMs, 1);
         }
