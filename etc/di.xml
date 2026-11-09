@@ -12,6 +12,7 @@
             <argument name="testers" xsi:type="array">
                 <item name="core" xsi:type="object">Fruitcake\HealthCheck\Model\SearchEngine\CoreConnectionTester</item>
                 <item name="amasty" xsi:type="object">Fruitcake\HealthCheck\Model\SearchEngine\AmastyConnectionTester</item>
+                <item name="elasticsuite" xsi:type="object">Fruitcake\HealthCheck\Model\SearchEngine\ElasticsuiteConnectionTester</item>
             </argument>
         </arguments>
     </type>

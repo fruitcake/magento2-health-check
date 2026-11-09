@@ -32,6 +32,9 @@ With a key set, the response lists every check:
 curl -H 'Authorization: Bearer <key>' https://example.com/up
 {
   "status": "warn",
+  "output": "cron: Last cron job finished 42 minutes ago",
+  "serviceId": "web1",
+  "releaseId": "1731151234",
   "checks": {
     "database": [{"status": "pass", "durationMs": 1.2}],
     "cron": [{"status": "warn", "output": "Last cron job finished 42 minutes ago", "durationMs": 0.8, "meta": {"last_finished_at": "2026-11-09T10:18:00+00:00", "minutes_ago": 42}}],
@@ -39,6 +42,8 @@ curl -H 'Authorization: Bearer <key>' https://example.com/up
   }
 }
 ```
+
+With details, the response also has `serviceId`, the hostname of the node that answered, and `releaseId`, the static content version from `pub/static/deployed_version.txt`. `setup:static-content:deploy` writes that file on every deploy, whatever the deploy tool, so after a deploy you can see whether every node runs the same release. `releaseId` is left out when the file does not exist, e.g. in developer mode.
 
 With details, a `warn` or `fail` response also gets a top-level `output` with every check that did not pass, failures first, so a monitor shows the reason without digging through `checks`:
 
@@ -73,13 +78,15 @@ The same paths work with `bin/magento config:set`, e.g. `config:set fruitcake_he
 | `cache_storage` | a cache frontend (default, page_cache) cannot write and read back a value | |
 | `session_storage` | the session storage Magento uses (files, Redis or database) cannot write and read back a session | no storage test exists for the handler (e.g. memcached), or database sessions without garbage collection (`session.gc_probability = 0`), so the `session` table keeps growing |
 | `cache_types` | | a cache type is disabled or invalidated |
-| `search_engine` | OpenSearch/Elasticsearch (Magento's own or Amasty Elastic Search) does not answer a ping | no connection test exists for the configured engine |
+| `search_engine` | OpenSearch/Elasticsearch (Magento's own, Amasty Elastic Search or Smile ElasticSuite) does not answer a ping | no connection test exists for the configured engine |
 | `rabbitmq` | no connection to RabbitMQ with `queue/amqp` from `env.php` (passes without connecting when it is not configured) | |
 | `indexers` | | an indexer is invalid or its changelog backlog is over the threshold |
 | `cron` | | no cron job finished within the threshold (15 minutes). The module adds an index on `cron_schedule` (`status`, `finished_at`) so this stays fast on a large table |
 | `deploy_mode` | | not in production mode |
 | `debug` | | template hints, debug logging or inline translation is on |
 | `disk_space` | free space on `var/` below 2% | free space below 10% |
+| `opcache` | | OPcache is off, its status is not available (`opcache.restrict_api`), 90% of its memory or keys (`opcache.max_accelerated_files`) is used, or the hit rate is below 90% after 10,000 requests. The result is per web node |
+| `two_factor_auth` | | admin two-factor authentication is off: `Magento_TwoFactorAuth` is disabled, or `twofactorauth/general/enable` is 0 (e.g. MarkShust_DisableTwoFactorAuth). Use `Yes, warnings fail in production mode` to fail on production only |
 
 A check that throws an exception counts as failed, also an observer that does not extend `AbstractCheck`; the checks after it still run. Failed checks are logged, the same failure at most once every 5 minutes.
 
@@ -103,21 +110,21 @@ Extend `AbstractCheck` and listen to `fruitcake_healthcheck_diagnose`:
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Observer\AbstractCheck;
 
-class Rabbitmq extends AbstractCheck
+class Erp extends AbstractCheck
 {
     // Add a constructor with your own dependencies; pass Config on to parent::__construct()
 
 
     public function getCode(): string
     {
-        return 'rabbitmq';
+        return 'erp';
     }
 
     protected function check(): CheckResult
     {
         return $this->isConnected()
             ? CheckResult::ok()
-            : CheckResult::failed('RabbitMQ is not reachable');
+            : CheckResult::failed('ERP is not reachable');
     }
 }
 ```
@@ -125,7 +132,7 @@ class Rabbitmq extends AbstractCheck
 ```xml
 <!-- etc/events.xml -->
 <event name="fruitcake_healthcheck_diagnose">
-    <observer name="vendor_module_rabbitmq" instance="Vendor\Module\Observer\Rabbitmq"/>
+    <observer name="vendor_module_erp" instance="Vendor\Module\Observer\Erp"/>
 </event>
 ```
 
@@ -134,7 +141,7 @@ class Rabbitmq extends AbstractCheck
 <default>
     <fruitcake_healthcheck>
         <checks>
-            <rabbitmq>1</rabbitmq>
+            <erp>1</erp>
         </checks>
     </fruitcake_healthcheck>
 </default>
@@ -144,7 +151,7 @@ To make it configurable in the admin, add a field to the `fruitcake_healthcheck/
 
 ### Search engines
 
-The `search_engine` check asks each tester in the pool whether it knows the configured engine. Magento's own OpenSearch/Elasticsearch and Amasty Elastic Search are built in. Add a tester for another engine by implementing `Fruitcake\HealthCheck\Model\SearchEngine\ConnectionTesterInterface` (return `null` for engines it does not know) and adding it in `di.xml`:
+The `search_engine` check asks each tester in the pool whether it knows the configured engine. Magento's own OpenSearch/Elasticsearch, Amasty Elastic Search and Smile ElasticSuite are built in. Add a tester for another engine by implementing `Fruitcake\HealthCheck\Model\SearchEngine\ConnectionTesterInterface` (return `null` for engines it does not know) and adding it in `di.xml`:
 
 ```xml
 <type name="Fruitcake\HealthCheck\Observer\Check\SearchEngine">

@@ -101,6 +101,16 @@
                     <label>Disk Space</label>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>
+                <field id="opcache" translate="label comment" type="select" sortOrder="100" showInDefault="1">
+                    <label>OPcache</label>
+                    <comment>Warns when OPcache is off, 90% of its memory or keys is used, or the hit rate is below 90%. Per web node.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
+                <field id="two_factor_auth" translate="label comment" type="select" sortOrder="110" showInDefault="1">
+                    <label>Two-Factor Authentication</label>
+                    <comment>Warns when admin 2FA is off: Magento_TwoFactorAuth disabled, or twofactorauth/general/enable set to 0.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
             </group>
             <group id="thresholds" translate="label" type="text" sortOrder="30" showInDefault="1">
                 <label>Thresholds</label>
