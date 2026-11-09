@@ -62,6 +62,7 @@ class HealthJson implements FormatInterface
         }
         // Which node answered and which deploy it runs; both say something about the infrastructure
         $data += array_filter([
+            'version' => $this->serviceInfo->getVersion(),
             'serviceId' => $this->serviceInfo->getServiceId(),
             'releaseId' => $this->serviceInfo->getReleaseId(),
         ], static fn (string $value) => $value !== '');

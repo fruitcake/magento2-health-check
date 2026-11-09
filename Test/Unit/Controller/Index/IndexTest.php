@@ -195,6 +195,7 @@ class IndexTest extends TestCase
         $this->assertSame([
             'status' => 'warn',
             'output' => 'cron: late',
+            'version' => '2.4.7-p3 (Community)',
             'serviceId' => 'web1',
             'releaseId' => '1731151234',
             'checks' => [
@@ -418,7 +419,7 @@ class IndexTest extends TestCase
 
         $response = $this->call([], $config, ['Authorization' => 'Bearer secret']);
 
-        $this->assertSame('{"status":"pass","serviceId":"web1","releaseId":"1731151234","checks":{}}', $response['body']);
+        $this->assertSame('{"status":"pass","version":"2.4.7-p3 (Community)","serviceId":"web1","releaseId":"1731151234","checks":{}}', $response['body']);
     }
 
     /**
@@ -461,6 +462,7 @@ class IndexTest extends TestCase
         $rawFactory->method('create')->willReturnCallback(static fn () => new Raw());
 
         $serviceInfo = $this->createMock(ServiceInfo::class);
+        $serviceInfo->method('getVersion')->willReturn('2.4.7-p3 (Community)');
         $serviceInfo->method('getServiceId')->willReturn('web1');
         $serviceInfo->method('getReleaseId')->willReturn($this->releaseId);
 

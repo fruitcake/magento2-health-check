@@ -84,6 +84,11 @@
                     <comment>Connects with queue/amqp from env.php. Passes when no RabbitMQ is configured.</comment>
                     <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
                 </field>
+                <field id="mysql_queue" translate="label comment" type="select" sortOrder="46" showInDefault="1">
+                    <label>MySQL Queue</label>
+                    <comment>Warns when messages pile up in Magento's MySQL queues, i.e. a consumer does not run.</comment>
+                    <source_model>Fruitcake\HealthCheck\Model\Config\Source\CheckMode</source_model>
+                </field>
                 <field id="indexers" translate="label comment" type="select" sortOrder="50" showInDefault="1">
                     <label>Indexers</label>
                     <comment>Warns about invalid indexers and a large changelog backlog.</comment>
@@ -133,6 +138,10 @@
                 <field id="indexer_backlog" translate="label" type="text" sortOrder="20" showInDefault="1">
                     <label>Indexers: Max Changelog Backlog</label>
                     <validate>validate-digits validate-greater-than-zero</validate>
+                </field>
+                <field id="queue_backlog" translate="label" type="text" sortOrder="25" showInDefault="1">
+                    <label>MySQL Queue: Max Waiting Messages</label>
+                    <validate>validate-digits</validate>
                 </field>
                 <field id="disk_free_warning" translate="label" type="text" sortOrder="30" showInDefault="1">
                     <label>Disk Space: Warning Below % Free</label>

@@ -4,16 +4,37 @@ declare(strict_types=1);
 
 namespace Fruitcake\HealthCheck\Model;
 
+use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\View\Deployment\Version\StorageInterface as DeployedVersion;
 
 /**
- * The "serviceId" and "releaseId" of draft-inadarei-api-health-check: which node answered, and which deploy it runs.
+ * The "version", "serviceId" and "releaseId" of draft-inadarei-api-health-check: which Magento version runs, which
+ * node answered, and which deploy it runs.
  */
 class ServiceInfo
 {
     public function __construct(
-        private readonly DeployedVersion $deployedVersion
+        private readonly DeployedVersion $deployedVersion,
+        private readonly ProductMetadataInterface $productMetadata
     ) {
+    }
+
+    /**
+     * Magento version and edition, e.g. "2.4.7-p3 (Community)".
+     */
+    public function getVersion(): string
+    {
+        try {
+            $version = (string) $this->productMetadata->getVersion();
+            $edition = (string) $this->productMetadata->getEdition();
+        } catch (\Throwable) {
+            return '';
+        }
+        if ($version === '' || $version === 'UNKNOWN') {
+            return '';
+        }
+
+        return $edition !== '' ? sprintf('%s (%s)', $version, $edition) : $version;
     }
 
     /**

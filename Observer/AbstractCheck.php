@@ -7,6 +7,7 @@ namespace Fruitcake\HealthCheck\Observer;
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\Config;
 use Fruitcake\HealthCheck\Model\HealthReport;
+use Fruitcake\HealthCheck\Model\Redactor;
 use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 
@@ -46,7 +47,8 @@ abstract class AbstractCheck implements ObserverInterface
         try {
             $result = $this->check();
         } catch (\Throwable $e) {
-            $result = CheckResult::failed($e->getMessage());
+            // Exception texts can hold a DSN or URL with credentials
+            $result = CheckResult::failed(Redactor::redact($e->getMessage()));
         }
 
         if ($result->status === CheckResult::WARNING && $this->config->isCheckStrict($this->getCode())) {

@@ -82,6 +82,7 @@ class Html implements FormatInterface
         $total = array_sum($counts);
 
         $facts = array_filter([
+            isset($data['version']) ? ['Magento', (string) $data['version'], false] : null,
             isset($data['releaseId']) ? ['Release', (string) $data['releaseId'], true] : null,
             ['Checked', gmdate('Y-m-d H:i') . ' UTC', false],
             $total ? ['Checks', (string) $total, false] : null,
