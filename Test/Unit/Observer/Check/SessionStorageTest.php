@@ -110,6 +110,24 @@ class SessionStorageTest extends TestCase
         $this->assertSame(['handler' => 'files', 'configured' => 'database'], $result->meta);
     }
 
+    public function testRegisteredUserHandlerStillTestsPhpFiles(): void
+    {
+        $dir = sys_get_temp_dir() . '/healthcheck_' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        // What Magento does on every request with a session: session.save_handler becomes "user"
+        session_set_save_handler(new \SessionHandler(), false);
+        try {
+            $this->assertSame('user', ini_get('session.save_handler'));
+            $result = $this->check(['session/save' => 'files'], savePath: $dir);
+        } finally {
+            ini_set('session.save_handler', 'files');
+            rmdir($dir);
+        }
+
+        $this->assertSame(CheckResult::OK, $result->status);
+        $this->assertSame(['handler' => 'files'], $result->meta);
+    }
+
     public function testUnknownHandlerWarns(): void
     {
         $result = $this->check(['session/save' => 'memcached']);
