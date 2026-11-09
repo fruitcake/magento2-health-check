@@ -54,7 +54,7 @@ class MonitorUrlField extends Field
             json_encode($inputId),
             json_encode($prefix . 'endpoint'),
             json_encode($prefix . 'key'),
-            json_encode($this->getBaseUrl())
+            json_encode($this->getStorefrontUrl())
         );
 
         $copy = sprintf(
@@ -82,7 +82,7 @@ class MonitorUrlField extends Field
     /**
      * Frontend base URL of the default store view, with the store code when URLs contain it.
      */
-    private function getBaseUrl(): string
+    private function getStorefrontUrl(): string
     {
         $store = $this->_storeManager->getDefaultStoreView();
         $url = $store
