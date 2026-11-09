@@ -35,8 +35,9 @@ class Index implements HttpGetActionInterface
         $report = $this->healthCheck->run();
         $data = ['status' => $report->getStatus()];
         if ($this->config->showDetails()) {
-            if ($report->getOutput() !== '') {
-                $data['output'] = $report->getOutput();
+            $output = $report->getOutput();
+            if ($output !== '') {
+                $data['output'] = $output;
             }
             // An object, also without checks
             $data['checks'] = $report->toArray() ?: new \stdClass();
@@ -68,6 +69,9 @@ class Index implements HttpGetActionInterface
             return $matches[1];
         }
 
-        return (string) $this->request->getParam('key', '');
+        $key = $this->request->getParam('key', '');
+
+        // ?key[]=x gives an array
+        return is_string($key) ? $key : '';
     }
 }

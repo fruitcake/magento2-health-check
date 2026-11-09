@@ -10,7 +10,7 @@ use Fruitcake\HealthCheck\Observer\Check\SessionStorage;
 use Fruitcake\HealthCheck\Test\Unit\ConfigStub;
 use Magento\Framework\App\DeploymentConfig;
 use Magento\Framework\Event\Observer;
-use Magento\Framework\Filesystem;
+use Magento\Framework\Session\Config\ConfigInterface as SessionConfig;
 use Magento\Framework\Session\SaveHandlerFactory;
 use PHPUnit\Framework\TestCase;
 
@@ -50,16 +50,34 @@ class SessionStorageTest extends TestCase
         $dir = sys_get_temp_dir() . '/healthcheck_' . bin2hex(random_bytes(4));
         mkdir($dir);
 
-        $result = $this->check(['session/save' => 'files', 'session/save_path' => '2;' . $dir]);
+        $result = $this->check(['session/save' => 'files'], savePath: $dir);
 
         $this->assertSame(CheckResult::OK, $result->status);
         $this->assertSame([], glob($dir . '/*'));
         rmdir($dir);
     }
 
+    public function testFilesWithDepthNeedsSubdirectories(): void
+    {
+        $dir = sys_get_temp_dir() . '/healthcheck_' . bin2hex(random_bytes(4));
+        mkdir($dir);
+
+        $withoutSubdirectories = $this->check(['session/save' => 'files'], savePath: '1;' . $dir);
+        foreach (str_split('0123456789abcdef') as $char) {
+            mkdir($dir . '/' . $char);
+        }
+        $withSubdirectories = $this->check(['session/save' => 'files'], savePath: '1;' . $dir);
+
+        $this->assertSame(CheckResult::FAILED, $withoutSubdirectories->status);
+        $this->assertSame(CheckResult::OK, $withSubdirectories->status);
+        $this->assertSame([], glob($dir . '/*/*'));
+        array_map('rmdir', glob($dir . '/*'));
+        rmdir($dir);
+    }
+
     public function testMissingFilesDirectoryFails(): void
     {
-        $result = $this->check(['session/save' => 'files', 'session/save_path' => '/does/not/exist']);
+        $result = $this->check(['session/save' => 'files'], savePath: '/does/not/exist');
 
         $this->assertSame(CheckResult::FAILED, $result->status);
     }
@@ -97,8 +115,11 @@ class SessionStorageTest extends TestCase
     /**
      * @param array<string, string> $env env.php values
      */
-    private function check(array $env, ?\SessionHandlerInterface $storage = null): CheckResult
+    private function check(array $env, ?\SessionHandlerInterface $storage = null, string $savePath = ''): CheckResult
     {
+        $sessionConfig = $this->createMock(SessionConfig::class);
+        $sessionConfig->method('getSavePath')->willReturn($savePath);
+
         $deploymentConfig = $this->createMock(DeploymentConfig::class);
         $deploymentConfig->method('get')->willReturnCallback(static fn (string $path) => $env[$path] ?? null);
 
@@ -110,7 +131,7 @@ class SessionStorageTest extends TestCase
             $this->createConfig(['fruitcake_healthcheck/checks/session_storage' => '1']),
             $deploymentConfig,
             $factory,
-            $this->createMock(Filesystem::class)
+            $sessionConfig
         );
         $check->execute(new Observer(['report' => $report]));
 
