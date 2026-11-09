@@ -6,13 +6,19 @@ namespace Fruitcake\HealthCheck\Model\Format;
 
 use Fruitcake\HealthCheck\Model\CheckResult;
 use Fruitcake\HealthCheck\Model\HealthReport;
+use Magento\Framework\App\Request\Http as HttpRequest;
 
 /**
  * The format of Oh Dear's Application Health monitoring:
  * https://ohdear.app/docs/features/application-health-monitoring
+ *
+ * Chosen for requests with the oh-dear-health-check-secret header Oh Dear sends. Always HTTP 200:
+ * the status of every check is in the body.
  */
-class OhDear
+class OhDear implements FormatInterface
 {
+    public const SECRET_HEADER = 'oh-dear-health-check-secret';
+
     private const STATUSES = [
         CheckResult::OK => 'ok',
         CheckResult::WARNING => 'warning',
@@ -22,6 +28,25 @@ class OhDear
     /** Oh Dear accepts at most 50 check results and 20 meta items per check */
     private const MAX_CHECKS = 50;
     private const MAX_META = 20;
+
+    public function getLabel(): string
+    {
+        return 'Oh Dear';
+    }
+
+    public function matches(HttpRequest $request): bool
+    {
+        return $request->getHeader(self::SECRET_HEADER) !== false;
+    }
+
+    public function render(HealthReport $report, bool $details): FormatResult
+    {
+        return new FormatResult(
+            json_encode($this->toArray($report, $details), HealthJson::JSON_FLAGS),
+            'application/json',
+            200
+        );
+    }
 
     /**
      * @param bool $details false gives one result with the overall status, as the health+json format

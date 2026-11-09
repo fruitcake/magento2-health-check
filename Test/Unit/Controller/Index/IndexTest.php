@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Fruitcake\HealthCheck\Test\Unit\Controller\Index;
 
 use Fruitcake\HealthCheck\Controller\Index\Index;
+use Fruitcake\HealthCheck\Model\BrowserDetector;
 use Fruitcake\HealthCheck\Model\CheckResult;
+use Fruitcake\HealthCheck\Model\Config;
+use Fruitcake\HealthCheck\Model\Format\FormatPool;
+use Fruitcake\HealthCheck\Model\Format\HealthJson;
+use Fruitcake\HealthCheck\Model\Format\Html;
 use Fruitcake\HealthCheck\Model\Format\OhDear;
 use Fruitcake\HealthCheck\Model\HealthCheck;
 use Fruitcake\HealthCheck\Model\HealthReport;
@@ -27,6 +32,11 @@ class IndexTest extends TestCase
     use ConfigStub;
 
     private string $releaseId = '1731151234';
+
+    private const BROWSER = [
+        'Sec-Fetch-Dest' => 'document',
+        'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Chrome/130.0.0.0 Safari/537.36',
+    ];
 
     private const KEY_CONFIG = [
         'fruitcake_healthcheck/general/key' => 'secret',
@@ -303,6 +313,88 @@ class IndexTest extends TestCase
         $this->assertArrayNotHasKey('releaseId', $body);
     }
 
+    public function testBrowserGetsHtmlWithJson(): void
+    {
+        $response = $this->call(['database' => CheckResult::ok()], headers: self::BROWSER);
+
+        $this->assertSame(200, $response['code']);
+        $this->assertSame('text/html; charset=utf-8', $response['headers']['Content-Type']);
+        $this->assertStringContainsString("default-src 'none'", $response['headers']['Content-Security-Policy']);
+        // A keyword check on the JSON still matches
+        $this->assertStringContainsString('&quot;status&quot;: &quot;pass&quot;', $response['body']);
+    }
+
+    public function testFailedCheckKeeps503InHtml(): void
+    {
+        $response = $this->call(['database' => CheckResult::failed('down')], headers: self::BROWSER);
+
+        $this->assertSame(503, $response['code']);
+        $this->assertStringContainsString('text/html', $response['headers']['Content-Type']);
+    }
+
+    public function testHtmlEscapesMessages(): void
+    {
+        $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
+
+        $response = $this->call(
+            ['cron' => CheckResult::warning('<script>alert(1)</script>')],
+            $config,
+            self::BROWSER + ['Authorization' => 'Bearer secret']
+        );
+
+        $this->assertStringNotContainsString('<script>', $response['body']);
+        $this->assertStringContainsString('&lt;script&gt;alert(1)&lt;/script&gt;', $response['body']);
+    }
+
+    public function testMonitorPretendingToBeBrowserGetsJson(): void
+    {
+        $headers = ['Sec-Fetch-Dest' => 'document', 'User-Agent' => 'Mozilla/5.0 Chrome/129.0.0.0 (StatusCake)'];
+
+        $response = $this->call(['database' => CheckResult::ok()], headers: $headers);
+
+        $this->assertSame('application/health+json', $response['headers']['Content-Type']);
+    }
+
+    public function testMonitorUserAgentFromAdminGetsJson(): void
+    {
+        $headers = ['Sec-Fetch-Dest' => 'document', 'User-Agent' => 'Mozilla/5.0 Chrome/129.0.0.0 MyMonitor/1.0'];
+        $config = ['fruitcake_healthcheck/general/monitor_user_agents' => "Other\r\n mymonitor \n"];
+
+        $response = $this->call(['database' => CheckResult::ok()], $config, $headers);
+
+        $this->assertSame('application/health+json', $response['headers']['Content-Type']);
+    }
+
+    public function testStatusCakeWithoutSecFetchGetsJson(): void
+    {
+        // What StatusCake really sends: a browser user agent and Accept, but no Sec-Fetch headers
+        $headers = [
+            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/129.0.0.0 Safari/537.36 (StatusCake)',
+            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        ];
+
+        $response = $this->call(['database' => CheckResult::ok()], headers: $headers);
+
+        $this->assertSame('application/health+json', $response['headers']['Content-Type']);
+    }
+
+    public function testOhDearFormatInBrowserStaysJson(): void
+    {
+        $response = $this->call(['database' => CheckResult::ok()], headers: self::BROWSER, params: ['format' => 'ohdear']);
+
+        $this->assertSame('application/json', $response['headers']['Content-Type']);
+        $this->assertArrayHasKey('checkResults', json_decode($response['body'], true));
+    }
+
+    public function testFormatParameterOverridesDetection(): void
+    {
+        $json = $this->call(['database' => CheckResult::ok()], headers: self::BROWSER, params: ['format' => 'json']);
+        $html = $this->call(['database' => CheckResult::ok()], params: ['format' => 'html']);
+
+        $this->assertSame('application/health+json', $json['headers']['Content-Type']);
+        $this->assertSame('text/html; charset=utf-8', $html['headers']['Content-Type']);
+    }
+
     public function testChecksIsAnObjectWhenNoCheckRan(): void
     {
         $config = self::KEY_CONFIG + ['fruitcake_healthcheck/general/show_details' => '1'];
@@ -355,14 +447,29 @@ class IndexTest extends TestCase
         $serviceInfo->method('getServiceId')->willReturn('web1');
         $serviceInfo->method('getReleaseId')->willReturn($this->releaseId);
 
+        $moduleConfig = $this->createConfig($config + ['fruitcake_healthcheck/general/enabled' => '1']);
+
         return new Index(
             $request,
             $rawFactory,
-            $this->createConfig($config + ['fruitcake_healthcheck/general/enabled' => '1']),
+            $moduleConfig,
             $healthCheck,
-            $serviceInfo,
-            new OhDear()
+            $this->formatPool($moduleConfig, $serviceInfo)
         );
+    }
+
+    /**
+     * The pool as in di.xml.
+     */
+    private function formatPool(Config $config, ServiceInfo $serviceInfo): FormatPool
+    {
+        $healthJson = new HealthJson($serviceInfo);
+
+        return new FormatPool([
+            'ohdear' => new OhDear(),
+            'html' => new Html($healthJson, new BrowserDetector($config, ['statuscake' => 'StatusCake'])),
+            'json' => $healthJson,
+        ]);
     }
 
     /**

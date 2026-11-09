@@ -57,6 +57,10 @@ Each check holds a list with one check object, as the draft prescribes. `output`
 
 The endpoint also speaks the format of [Oh Dear's Application Health monitoring](https://ohdear.app/docs/features/application-health-monitoring). In Oh Dear, set the health check URL to the endpoint and the secret to the key. Oh Dear sends the key in the `oh-dear-health-check-secret` header, which gets that format; `?format=ohdear` does the same for testing. The response is always HTTP 200, as the status of each check is in the body, and `403` for a wrong secret. Every check becomes a check result; nested `meta` values are joined into one string, as Oh Dear shows meta as keys and values. Without details, the only result is `health` with the overall status.
 
+### In a browser
+
+Opened in a browser, the endpoint shows an HTML page: the status, a table of the checks, and the JSON. Browsers are recognised by the `Sec-Fetch-Dest: document` header, which monitors do not send, even the ones that pretend to be a browser, like StatusCake. Monitors that use a real browser get JSON by their user agent: StatusCake, UptimeRobot, Pingdom, Oh Dear, Checkly, Better Stack and others are built in, and **Monitor User Agents** in the configuration adds more. `?format=json` or `?format=html` overrides the detection. The HTTP status is the same, and the page holds the JSON too, so a keyword check on e.g. `"pass"` still matches.
+
 ## Defaults
 
 The module works right after install: `/health` is public, returns only the overall status and runs every check below. No check is strict, so warnings never turn the endpoint red.
@@ -68,6 +72,7 @@ Stores > Configuration > Fruitcake Extensions > Health Check:
 - **Endpoint**: the path, `health` by default. Before 1.0 the default was `up`: shops that relied on it can keep it with `bin/magento config:set fruitcake_healthcheck/general/endpoint up`.
 - **Key**: when set, requests need an `Authorization: Bearer <key>` header, or `?key=<key>` for monitors that cannot send headers. **Generate Key** fills in a random key. The key is stored as plain text, so it stays readable in the admin. Keys stored encrypted by 0.x still work and are saved as plain text on the next save. Set it from the CLI with `bin/magento config:set fruitcake_healthcheck/general/key <key>`, or in `env.php`.
 - **Monitor URL**: the full URL with `?key=` for the default store view, with a **Copy URL** button. It follows the endpoint and key fields as you type, so save before using it.
+- **Monitor User Agents**: parts of user agents, one per line, that always get JSON instead of the HTML page for browsers.
 - **Show Check Details**: adds every check with its status, message, meta data and duration to the response. On by default, but only applies when a key is set.
 - **Checks**: per check `No`, `Yes`, `Yes, warnings fail` or `Yes, warnings fail in production mode`. A strict check reports its warnings as failures, so the endpoint returns 503, e.g. when cron is behind. Keep checks non-strict when a load balancer uses the endpoint, or an invalid indexer takes every node out of rotation.
 - **Thresholds**: cron age, indexer backlog and free disk space.
@@ -170,6 +175,26 @@ The `search_engine` check asks each tester in the pool whether it knows the conf
 ### Without AbstractCheck
 
 An observer that does not extend `AbstractCheck` gets the report with `$observer->getData('report')` and calls `$report->add('code', CheckResult::warning('...'))`.
+
+## Adding a format
+
+The response formats (`json`, `ohdear`, `html`) are a pool in `di.xml`. Add one by implementing `Fruitcake\HealthCheck\Model\Format\FormatInterface`:
+
+- `getLabel()`: the name shown in the admin, e.g. in the format choice of the monitor URL.
+- `matches($request)`: whether the format suits a request without `?format=`, e.g. by a header. Return `false` to only use it with `?format=`.
+- `render($report, $details)`: a `FormatResult` with the body, content type and HTTP status. With `$details` false, show only the overall status, as for requests without the key.
+
+```xml
+<type name="Fruitcake\HealthCheck\Model\Format\FormatPool">
+    <arguments>
+        <argument name="formats" xsi:type="array">
+            <item name="prometheus" xsi:type="object">Vendor\Module\Model\PrometheusFormat</item>
+        </argument>
+    </arguments>
+</type>
+```
+
+`?format=prometheus` then picks it. Without `?format=`, the first format whose `matches()` is true wins, in the order of the pool, and `json` is the default. The key is checked before any format runs; a wrong key always gets `403` JSON.
 
 ## Tests
 

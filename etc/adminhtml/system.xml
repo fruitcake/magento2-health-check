@@ -32,8 +32,15 @@
                 </field>
                 <field id="monitor_url" translate="label comment" type="text" sortOrder="35" showInDefault="1">
                     <label>Monitor URL</label>
-                    <comment>The endpoint with the key of the default store view, for monitors that cannot send headers. Follows the fields above as you type; save to make it work.</comment>
+                    <comment>The endpoint with the key of the default store view, for monitors that cannot send headers. Follows the fields above as you type; save to make it work. The format only changes the copied URL (?format=...).</comment>
                     <frontend_model>Fruitcake\HealthCheck\Block\Adminhtml\System\Config\MonitorUrlField</frontend_model>
+                    <depends>
+                        <field id="enabled">1</field>
+                    </depends>
+                </field>
+                <field id="monitor_user_agents" translate="label comment" type="textarea" sortOrder="45" showInDefault="1">
+                    <label>Monitor User Agents</label>
+                    <comment><![CDATA[A browser gets an HTML page, monitors get JSON. Monitors that use a real browser are recognised by their user agent: add a part of it per line, e.g. "MyMonitor". StatusCake, UptimeRobot, Pingdom, Oh Dear, Checkly, Better Stack and others are built in.]]></comment>
                     <depends>
                         <field id="enabled">1</field>
                     </depends>
