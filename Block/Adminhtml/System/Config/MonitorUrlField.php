@@ -36,24 +36,30 @@ class MonitorUrlField extends Field
     {
         $inputId = $element->getHtmlId();
         $buttonId = $inputId . '_copy';
+        $formatId = $inputId . '_format';
         $prefix = substr($inputId, 0, -strlen('monitor_url'));
 
         $script = sprintf(
             "var output = document.getElementById(%s);"
             . "var endpoint = document.getElementById(%s);"
             . "var key = document.getElementById(%s);"
+            . "var format = document.getElementById(%s);"
             . "var update = function () {"
             . "  var path = (endpoint && endpoint.value ? endpoint.value : 'up').replace(/^\\/+|\\/+$/g, '');"
             . "  var value = key ? key.value.trim() : '';"
-            . "  output.value = %s + path + (value ? '?key=' + encodeURIComponent(value) : '');"
+            . "  var query = [];"
+            . "  if (value) { query.push('key=' + encodeURIComponent(value)); }"
+            . "  if (format.value) { query.push('format=' + format.value); }"
+            . "  output.value = %s + path + (query.length ? '?' + query.join('&') : '');"
             . "};"
-            . "[endpoint, key].forEach(function (field) {"
+            . "[endpoint, key, format].forEach(function (field) {"
             . "  if (field) { field.addEventListener('input', update); field.addEventListener('change', update); }"
             . "});"
             . "update();",
             json_encode($inputId),
             json_encode($prefix . 'endpoint'),
             json_encode($prefix . 'key'),
+            json_encode($formatId),
             json_encode($this->getStorefrontUrl())
         );
 
@@ -70,6 +76,16 @@ class MonitorUrlField extends Field
             '<input type="text" id="%s" class="input-text admin__control-text" readonly="readonly" value="">',
             $this->escapeHtmlAttr($inputId)
         )
+            // Only changes the URL to copy; without a name, nothing is saved
+            . sprintf(
+                '<select id="%s" class="admin__control-select" style="margin: 8px 8px 0 0" title="%s">'
+                . '<option value="">%s</option><option value="json">%s</option><option value="html">%s</option></select>',
+                $this->escapeHtmlAttr($formatId),
+                $this->escapeHtmlAttr(__('Format of the copied URL')),
+                $this->escapeHtml(__('Auto: HTML in a browser, JSON for monitors')),
+                $this->escapeHtml(__('Always JSON')),
+                $this->escapeHtml(__('Always HTML'))
+            )
             . sprintf(
                 '<button type="button" id="%s" class="action-default" style="margin-top: 8px">%s</button>',
                 $this->escapeHtmlAttr($buttonId),

@@ -32,7 +32,7 @@
                 </field>
                 <field id="monitor_url" translate="label comment" type="text" sortOrder="35" showInDefault="1">
                     <label>Monitor URL</label>
-                    <comment>The endpoint with the key of the default store view, for monitors that cannot send headers. Follows the fields above as you type; save to make it work.</comment>
+                    <comment>The endpoint with the key of the default store view, for monitors that cannot send headers. Follows the fields above as you type; save to make it work. The format only changes the copied URL (?format=json or html).</comment>
                     <frontend_model>Fruitcake\HealthCheck\Block\Adminhtml\System\Config\MonitorUrlField</frontend_model>
                     <depends>
                         <field id="enabled">1</field>
