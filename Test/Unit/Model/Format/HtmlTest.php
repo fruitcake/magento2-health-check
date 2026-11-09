@@ -44,6 +44,21 @@ class HtmlTest extends TestCase
         $this->assertStringContainsString('<span class="chip-key">last_finished_at</span>2026-11-09 12:11:08 UTC</span>', $html);
     }
 
+    public function testPercentAndMegabyteKeysShowTheirUnit(): void
+    {
+        $html = $this->render(['disk_space' => [['status' => 'pass', 'meta' => [
+            'free_percent' => 61.3,
+            'free_mb' => 48213,
+            'used_mb' => 512,
+            'name_percent' => 'not a number',
+        ]]]]);
+
+        $this->assertStringContainsString('<span class="chip-key">free</span>61.3%</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">free</span>47.1 GB</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">used</span>512 MB</span>', $html);
+        $this->assertStringContainsString('<span class="chip-key">name_percent</span>not a number</span>', $html);
+    }
+
     public function testBannerNamesTheFailingChecks(): void
     {
         $data = ['status' => 'fail', 'serviceId' => 'web1', 'checks' => [

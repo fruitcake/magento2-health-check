@@ -21,7 +21,7 @@ class OpcacheTest extends TestCase
 
         $this->assertSame(CheckResult::OK, $result->status);
         $this->assertSame([
-            'hit_rate' => 99.5,
+            'hit_rate_percent' => 99.5,
             'memory_used_percent' => 50.0,
             'keys_used_percent' => 25.0,
             'cached_scripts' => 4000,

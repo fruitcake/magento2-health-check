@@ -52,7 +52,7 @@ class Opcache extends AbstractCheck
         $requests = (int) ($statistics['hits'] ?? 0) + (int) ($statistics['misses'] ?? 0);
 
         $meta = [
-            'hit_rate' => $hitRate,
+            'hit_rate_percent' => $hitRate,
             'memory_used_percent' => $memoryUsed,
             'keys_used_percent' => $keysUsed,
             'cached_scripts' => (int) ($statistics['num_cached_scripts'] ?? 0),

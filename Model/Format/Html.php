@@ -187,6 +187,7 @@ class Html implements FormatInterface
 
     /**
      * One chip per meta item; a nested object becomes a chip per key, a list is joined with commas.
+     * Keys ending in _percent or _mb show their unit instead: memory_used_percent 36.1 becomes memory_used 36.1%.
      */
     private function renderMeta(array $meta): string
     {
@@ -196,11 +197,31 @@ class Html implements FormatInterface
                 $chips .= $this->renderMeta($value);
                 continue;
             }
-            $chips .= '<span class="chip"><span class="chip-key">' . $this->escape((string) $key) . '</span>'
-                . $this->escape($this->formatValue($value)) . '</span>';
+            [$label, $text] = $this->formatMetaItem((string) $key, $value);
+            $chips .= '<span class="chip"><span class="chip-key">' . $this->escape($label) . '</span>'
+                . $this->escape($text) . '</span>';
         }
 
         return $chips;
+    }
+
+    /**
+     * @return array{string, string} label and value
+     */
+    private function formatMetaItem(string $key, mixed $value): array
+    {
+        if (is_int($value) || is_float($value)) {
+            if (str_ends_with($key, '_percent')) {
+                return [substr($key, 0, -strlen('_percent')), $value . '%'];
+            }
+            if (str_ends_with($key, '_mb')) {
+                $label = substr($key, 0, -strlen('_mb'));
+
+                return [$label, $value >= 1024 ? round($value / 1024, 1) . ' GB' : $value . ' MB'];
+            }
+        }
+
+        return [$key, $this->formatValue($value)];
     }
 
     private function formatValue(mixed $value): string

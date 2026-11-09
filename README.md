@@ -156,6 +156,8 @@ class Erp extends AbstractCheck
 </default>
 ```
 
+Meta values are shown as they are in JSON. On the HTML page, numeric values of keys ending in `_percent` or `_mb` show their unit: `free_percent: 61.3` becomes `free 61.3%`, `free_mb: 48213` becomes `free 47.1 GB`. Use these suffixes for your own checks too.
+
 To make it configurable in the admin, add a field to the `fruitcake_healthcheck/checks` group in your own `system.xml`, with `Fruitcake\HealthCheck\Model\Config\Source\CheckMode` as source model.
 
 ### Search engines
